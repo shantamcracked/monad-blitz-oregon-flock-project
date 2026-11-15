@@ -30,3 +30,68 @@
 
 /* Settlement takes the header's place, preserving the projector layout height. */
 .board:has(.banner) .header { display: none; }
+
+.board {
+  --color-flock-ink: #091626;
+  --color-flock-card: #11243a;
+  --color-flock-line: #314763;
+  --color-flock-purple: #a2caff;
+  --color-flock-mint: #8bf1cd;
+  --color-flock-gold: #ffda98;
+  background-image: radial-gradient(ellipse at 20% 6%, #203e62 0%, transparent 48%),
+    radial-gradient(ellipse at 93% 100%, #153944 0%, transparent 43%);
+}
+.card {
+  background-image: linear-gradient(150deg, #19304b, #102238 60%, #112d39);
+  border-color: #3a556f;
+  box-shadow: inset 0 1px #c4e0ff13, 0 14px 34px #060e2240;
+}
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-image: radial-gradient(ellipse at 88% 95%, #214e50 0%, transparent 58%),
+    linear-gradient(142deg, #203c5c, #122942 58%, #133443);
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 2rem auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #b4d8ff 34%, #91f0ce 62%, transparent);
+  box-shadow: 0 0 16px #99d8ff;
+  pointer-events: none;
+}
+.network { background: #101f33; box-shadow: inset 0 1px #b5ddff13; }
+.price { line-height: 1; text-shadow: 0 4px 32px #89cbff2e; }
+.drop {
+  background: linear-gradient(115deg, #e1fff3, #8bf1cd 70%, #ffe1ac);
+  box-shadow: 0 4px 28px #8bf1cd4d;
+}
+.chart { min-width: 0; }
+.curveGlow :global(.recharts-line-curve) { filter: drop-shadow(0 0 7px #73f4c699); }
+.beacon { filter: drop-shadow(0 0 9px #92ffcf); }
+.ripple { animation: ripple 950ms cubic-bezier(.16,.8,.3,1) both; }
+.echo { animation-delay: 155ms; }
+.spark { animation: sparkle 750ms cubic-bezier(.12,.67,.24,1) both; }
+@keyframes ripple {
+  from { opacity: .85; transform: scale(.85); }
+  to { opacity: 0; transform: scale(4.1); }
+}
+@keyframes sparkle {
+  0% { opacity: 0; transform: scale(.45); }
+  24% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--spark-x), var(--spark-y)) rotate(45deg) scale(.22); }
+}
+.qr {
+  background-image: radial-gradient(ellipse at 50% 56%, white 25%, #f1f9fc 70%, #e0f4ee);
+  border: 1px solid #ecffff;
+  box-shadow: 0 12px 38px #050f2640;
+}
+.qrCode { background: white; border-radius: 16px; }
+.duckNumber { color: #dbeafd; }
+.minimum { background: #ffda98; box-shadow: 0 0 9px #ffda9870; }
+.coin { color: #adffe1; text-shadow: 0 0 12px #71efc4; }
+.event { border-color: #a8c7e528; }
+@media (prefers-reduced-motion: reduce) {
+  .ripple, .spark { display: none; animation: none; }
+}

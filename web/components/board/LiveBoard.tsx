@@ -1,16 +1,38 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
-import { Line, LineChart, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import confetti from "canvas-confetti";
 import type { LiveBoardProps } from "@/lib/types";
 import { fmtUsd } from "@/lib/flock-math";
 import styles from "./LiveBoard.module.css";
 
+const sparks = [[0, -31], [24, -21], [34, 1], [20, 24], [-4, 29], [-28, 13], [-26, -17]];
+
+function CurveBeacon({ cx, cy, celebrate }: { cx?: number; cy?: number; celebrate: boolean }) {
+  if (cx === undefined || cy === undefined) return null;
+  return (
+    <g transform={`translate(${cx} ${cy})`} aria-hidden="true">
+      {celebrate && <>
+        <circle className={styles.ripple} r="9" fill="none" stroke="#9fffe1" strokeWidth="1.5" />
+        <circle className={`${styles.ripple} ${styles.echo}`} r="9" fill="none" stroke="#f9d695" />
+        {sparks.map(([x, y], index) => (
+          <path key={index} d="M0 -4 1.3 -1.3 4 0 1.3 1.3 0 4 -1.3 1.3 -4 0 -1.3 -1.3Z"
+            className={styles.spark} fill={index % 2 ? "#a7ffe4" : "#ffdf9d"}
+            style={{ "--spark-x": `${x}px`, "--spark-y": `${y}px`, animationDelay: `${index * 24}ms` } as React.CSSProperties} />
+        ))}
+      </>}
+      <circle r="16" fill="#67efc0" opacity=".14" />
+      <circle className={styles.beacon} r="7" fill="#b5ffe6" stroke="white" strokeWidth="2" />
+    </g>
+  );
+}
+
 export default function LiveBoard({ flock, joinUrl, blockTimeMs = 300 }: LiveBoardProps) {
   const reduced = useReducedMotion();
+  const chartId = useId();
   const [now, setNow] = useState<number | null>(null);
   const [price, setPrice] = useState(flock.price);
   const [drop, setDrop] = useState<{ amount: number; serial: number; earlier: number } | null>(null);
@@ -50,21 +72,25 @@ export default function LiveBoard({ flock, joinUrl, blockTimeMs = 300 }: LiveBoa
   useEffect(() => {
     if (flock.status === "success" && celebrated.current !== flock.id) {
       celebrated.current = flock.id;
-      if (!reduced) void confetti({ particleCount: 160, spread: 100, origin: { y: 0.35 }, colors: ["#836EF9", "#3DF5A7", "#FFC94D"], disableForReducedMotion: true });
+      if (!reduced) void confetti({ particleCount: 160, spread: 100, origin: { y: 0.35 }, colors: ["#9FCBFF", "#8BF1CD", "#FFDA98"], disableForReducedMotion: true });
     }
   }, [flock.id, flock.status, reduced]);
 
   const seconds = now === null ? null : Math.max(0, Math.ceil((flock.deadline - now) / 1000));
   const countdown = seconds === null ? "--:--" : `${seconds >= 3600 ? `${Math.floor(seconds / 3600)}:` : ""}${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   const remaining = Math.max(0, flock.minBuyers - flock.n);
-  const curve = flock.curve.map(point => ({ ...point, reached: point.n <= flock.n ? point.price : null }));
+  const curve = useMemo(() => flock.curve.map(point => ({
+    ...point,
+    reached: point.n <= flock.n ? point.price : null,
+  })), [flock.curve, flock.n]);
+  const currentPoint = curve.find(point => point.n === flock.n);
   const full = flock.n >= flock.maxBuyers;
 
   return (
     <main className={`${styles.board} bg-flock-ink text-white`}>
       <header className={styles.header}>
         <div className="min-w-0">
-          <div className="text-flock-purple font-bold tracking-[0.2em] uppercase">🦆 Flock / live board</div>
+          <div className="text-flock-purple font-bold tracking-[0.2em] uppercase">🦆 Flock · Live board</div>
           <h1 className={styles.title}>{flock.title}</h1>
         </div>
         <div className={`${styles.network} rounded-full border border-flock-line`}>
@@ -79,7 +105,7 @@ export default function LiveBoard({ flock, joinUrl, blockTimeMs = 300 }: LiveBoa
 
       <div className={styles.layout}>
         <section className={`${styles.hero} ${styles.card} bg-flock-card`} aria-label="Current group price">
-          <div className="flex items-center justify-between gap-4 text-white/75"><span>EVERYONE PAYS</span><span className="text-flock-mint">Same price. Every duck.</span></div>
+          <div className="flex items-center justify-between gap-4 text-white/75"><span>PRICE PER PERSON</span><span className="text-flock-mint">Better together</span></div>
           <div className={styles.priceRow}>
             <motion.div key={`${flock.id}-${flock.price}`} initial={false} animate={{ color: drop ? ["#3DF5A7", "#3DF5A7", "#ffffff"] : "#ffffff" }} transition={{ duration: reduced ? 0 : 1.2 }} className={`${styles.price} font-mono tabular-nums font-black`}>{fmtUsd(price)}</motion.div>
             <AnimatePresence>{drop && <motion.div key={drop.serial} className={styles.drop} initial={{ opacity: 1, y: 10, scale: 0.9 }} animate={{ opacity: [1, 1, 0], y: -40, scale: 1 }} transition={{ duration: reduced ? 0 : 2 }}>-{fmtUsd(drop.amount)} for everyone</motion.div>}</AnimatePresence>
@@ -87,20 +113,32 @@ export default function LiveBoard({ flock, joinUrl, blockTimeMs = 300 }: LiveBoa
           <div className={styles.priceDetails}><span className="text-white/70">Alone: <s>{fmtUsd(flock.soloPrice)}</s></span><span>{flock.status !== "open" ? "Settled" : full ? "Flock is full" : <>Next duck pays: <strong className="text-flock-mint">{fmtUsd(flock.nextPrice)}</strong></>}</span></div>
           <div className={styles.chart} aria-label="Price falls as more ducks join">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={curve} margin={{ top: 16, right: 22, bottom: 0, left: 4 }}>
-                <XAxis dataKey="n" type="number" domain={[1, Math.max(2, flock.maxBuyers)]} stroke="#bcb5d4" tickLine={false} axisLine={false} minTickGap={35} tick={{ fontSize: 20 }} />
-                <YAxis tickFormatter={value => `$${value}`} stroke="#bcb5d4" tickLine={false} axisLine={false} width={75} tick={{ fontSize: 20 }} tickCount={3} />
-                <Line type="monotone" dataKey="price" stroke="#836EF9" strokeWidth={3} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="reached" stroke="#b7aaff" strokeWidth={6} dot={false} isAnimationActive={false} />
-                {flock.n > 0 && <ReferenceDot x={flock.n} y={flock.price} r={9} fill="#3DF5A7" stroke="#fff" strokeWidth={3} style={{ filter: "drop-shadow(0 0 8px #3DF5A7)" }} />}
-              </LineChart>
+              <ComposedChart data={curve} margin={{ top: 17, right: 28, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id={`${chartId}-line`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#9ac5ff" />
+                    <stop offset="100%" stopColor="#8bf1cd" />
+                  </linearGradient>
+                  <linearGradient id={`${chartId}-fill`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#75d9c2" stopOpacity={0.29} />
+                    <stop offset="100%" stopColor="#75d9c2" stopOpacity={0.015} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#a8c7e5" strokeOpacity={0.17} strokeDasharray="3 6" />
+                <XAxis dataKey="n" type="number" domain={[1, Math.max(2, flock.maxBuyers)]} allowDecimals={false} tickLine={false} axisLine={false} minTickGap={28} tick={{ fill: "#b6c9dc", fontSize: 20 }} />
+                <YAxis tickFormatter={value => `$${value}`} tickLine={false} axisLine={false} width={76} tick={{ fill: "#b6c9dc", fontSize: 20 }} tickCount={3} />
+                <Area type="monotone" dataKey="reached" fill={`url(#${chartId}-fill)`} stroke="none" isAnimationActive={false} />
+                <Line type="monotone" dataKey="price" stroke="#81adf0" strokeOpacity={0.62} strokeDasharray="5 7" strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="reached" className={styles.curveGlow} stroke={`url(#${chartId}-line)`} strokeWidth={5} strokeLinecap="round" dot={false} isAnimationActive={false} />
+                {currentPoint && <ReferenceDot key={`${flock.id}-${flock.n}`} x={currentPoint.n} y={currentPoint.price} shape={<CurveBeacon celebrate={flock.status === "open" && !reduced} />} />}
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex justify-between gap-3 text-white/75"><span>More ducks → lower price</span><span className="text-flock-mint">{fmtUsd(flock.totalRebated)} paid back</span></div>
+          <div className="flex justify-between gap-3 text-white/75"><span>More friends, lower prices</span><span className="text-flock-mint">{fmtUsd(flock.totalRebated)} paid back</span></div>
         </section>
 
         <aside className={`${styles.qr} rounded-3xl bg-white text-flock-ink`}>
-          <div className="font-black text-3xl">The room is the flock.</div>
+          <div className="font-black text-3xl">Good things split well.</div>
           <QRCodeSVG value={joinUrl} size={320} marginSize={4} level="M" className={styles.qrCode} title="Scan to join this flock" />
           <div className="font-black text-3xl">Scan to join</div>
           <p className="text-center">Email login · no wallet · no gas</p>
@@ -123,7 +161,7 @@ export default function LiveBoard({ flock, joinUrl, blockTimeMs = 300 }: LiveBoa
         </section>
 
         <section className={`${styles.feed} ${styles.card} bg-flock-card`} aria-label="Live activity">
-          <div className="flex justify-between"><strong>Live activity</strong><span className="text-flock-mint">● Onchain</span></div>
+          <div className="flex justify-between"><strong>Live activity</strong><span className="text-flock-mint">● Live</span></div>
           <div className={styles.feedItems}>
             <AnimatePresence initial={false}>
               {flock.feed.slice(0, 6).map(event => <motion.div key={event.id} layout initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : 0.3 }} className={styles.event}>

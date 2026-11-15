@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import Receipt from "@/components/receipt/Receipt";
 import { makeMockFlock } from "@/lib/mock";
@@ -13,6 +14,7 @@ export default function PreviewReceipt() {
         {(["success", "failed", "pending"] as const).map((x) => (
           <button key={x} onClick={() => setV(x)} className={`rounded-full px-3 py-1 text-sm ${v === x ? "bg-flock-purple" : "bg-flock-card"}`}>{x}</button>
         ))}
+        <Link href="/preview/receipt/profile" className="self-center px-3 text-sm font-semibold text-flock-mint underline">Buyer profile</Link>
       </div>
       <Receipt variant={v} flock={flock} me={me} txHash="0x1234567890abcdef" explorerBaseUrl="https://testnet.monadexplorer.com" />
     </div>
