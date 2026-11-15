@@ -1,0 +1,97 @@
+.board { min-height: 100svh; padding: clamp(20px, 2.2vw, 42px); font-size: 20px; display: flex; flex-direction: column; gap: 20px; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.title { font-size: clamp(28px, 2.6vw, 50px); font-weight: 900; line-height: 1.15; margin-top: 8px; overflow-wrap: anywhere; }
+.network { display: flex; align-items: center; gap: 12px; padding: 12px 18px; white-space: nowrap; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, .45fr); grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; flex: 1; min-height: 0; }
+.card { border: 1px solid #2e2650; border-radius: 24px; padding: clamp(18px, 1.5vw, 30px); min-width: 0; min-height: 0; }
+.hero { display: flex; flex-direction: column; }
+.priceRow { position: relative; }
+.price { font-size: clamp(140px, 10.5vw, 202px); line-height: 1.15; letter-spacing: -.065em; white-space: nowrap; }
+.drop { position: absolute; right: 0; bottom: 0; background: #3df5a7; color: #0e0b1a; border-radius: 99px; padding: 8px 16px; font-weight: 800; }
+.priceDetails { display: flex; justify-content: space-between; gap: 12px; }
+.chart { flex: 1; min-height: 100px; margin-top: 8px; }
+.qr { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center; min-height: 0; }
+.qrCode { width: min(100%, 32vh); height: auto; flex-shrink: 1; min-height: 0; }
+.ducks { display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+.duckHeading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.duckGrid { display: grid; gap: 7px; }
+.slot { position: relative; border-width: 1px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 58px; }
+.slot > span:first-child { font-size: 26px; line-height: 1.1; }
+.duckNumber { font-size: 20px; color: #d3cdeb; }
+.minimum { position: absolute; width: 3px; background: #ffc94d; right: -5px; top: -5px; bottom: -5px; border-radius: 4px; }
+.coin { position: absolute; top: 0; color: #3df5a7; font-weight: 900; z-index: 1; }
+.feed { display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.feedItems { overflow: hidden; mask-image: linear-gradient(black 88%, transparent); }
+.event { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid #2e2650; line-height: 1.3; }
+.banner { padding: 10px 20px; border-radius: 16px; text-align: center; font-size: 28px; font-weight: 900; }
+@media (min-width: 1100px) { .board { height: 100svh; overflow: hidden; } }
+@media (max-height: 850px) and (min-width: 1100px) { .board { padding: 20px; gap: 14px; } .layout { gap: 14px; grid-template-rows: minmax(0, 1.65fr) minmax(0, 1fr); } .card { padding: 16px; } .title { font-size: 32px; } .ducks { gap: 10px; } .slot { min-height: 46px; } .slot > span:first-child { font-size: 22px; } .event { padding: 7px 0; } }
+@media (max-width: 1099px) { .header { flex-wrap: wrap; } .layout { grid-template-columns: 1fr; grid-template-rows: auto; } .hero { min-height: 450px; } .qrCode { width: 280px; } .price { font-size: clamp(72px, 16vw, 140px); } .duckGrid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } .priceDetails { flex-wrap: wrap; } .network { white-space: normal; } .feedItems { max-height: 400px; } }
+
+/* Settlement takes the header's place, preserving the projector layout height. */
+.board:has(.banner) .header { display: none; }
+
+.board {
+  --color-flock-ink: #091626;
+  --color-flock-card: #11243a;
+  --color-flock-line: #314763;
+  --color-flock-purple: #a2caff;
+  --color-flock-mint: #8bf1cd;
+  --color-flock-gold: #ffda98;
+  background-image: radial-gradient(ellipse at 20% 6%, #203e62 0%, transparent 48%),
+    radial-gradient(ellipse at 93% 100%, #153944 0%, transparent 43%);
+}
+.card {
+  background-image: linear-gradient(150deg, #19304b, #102238 60%, #112d39);
+  border-color: #3a556f;
+  box-shadow: inset 0 1px #c4e0ff13, 0 14px 34px #060e2240;
+}
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-image: radial-gradient(ellipse at 88% 95%, #214e50 0%, transparent 58%),
+    linear-gradient(142deg, #203c5c, #122942 58%, #133443);
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 2rem auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #b4d8ff 34%, #91f0ce 62%, transparent);
+  box-shadow: 0 0 16px #99d8ff;
+  pointer-events: none;
+}
+.network { background: #101f33; box-shadow: inset 0 1px #b5ddff13; }
+.price { line-height: 1; text-shadow: 0 4px 32px #89cbff2e; }
+.drop {
+  background: linear-gradient(115deg, #e1fff3, #8bf1cd 70%, #ffe1ac);
+  box-shadow: 0 4px 28px #8bf1cd4d;
+}
+.chart { min-width: 0; }
+.curveGlow :global(.recharts-line-curve) { filter: drop-shadow(0 0 7px #73f4c699); }
+.beacon { filter: drop-shadow(0 0 9px #92ffcf); }
+.ripple { animation: ripple 950ms cubic-bezier(.16,.8,.3,1) both; }
+.echo { animation-delay: 155ms; }
+.spark { animation: sparkle 750ms cubic-bezier(.12,.67,.24,1) both; }
+@keyframes ripple {
+  from { opacity: .85; transform: scale(.85); }
+  to { opacity: 0; transform: scale(4.1); }
+}
+@keyframes sparkle {
+  0% { opacity: 0; transform: scale(.45); }
+  24% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--spark-x), var(--spark-y)) rotate(45deg) scale(.22); }
+}
+.qr {
+  background-image: radial-gradient(ellipse at 50% 56%, white 25%, #f1f9fc 70%, #e0f4ee);
+  border: 1px solid #ecffff;
+  box-shadow: 0 12px 38px #050f2640;
+}
+.qrCode { background: white; border-radius: 16px; }
+.duckNumber { color: #dbeafd; }
+.minimum { background: #ffda98; box-shadow: 0 0 9px #ffda9870; }
+.coin { color: #adffe1; text-shadow: 0 0 12px #71efc4; }
+.event { border-color: #a8c7e528; }
+@media (prefers-reduced-motion: reduce) {
+  .ripple, .spark { display: none; animation: none; }
+}
