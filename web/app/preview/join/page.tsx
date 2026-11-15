@@ -117,7 +117,7 @@ export default function PreviewJoin() {
   return (
     <div className="min-h-[100dvh] overflow-x-clip bg-[#f4f7fb] text-slate-950">
       <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 shadow-sm px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
-        <div className="mx-auto max-w-md">
+        <div className="mx-auto max-w-md lg:max-w-6xl">
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
