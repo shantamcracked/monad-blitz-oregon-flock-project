@@ -3,7 +3,7 @@ import deployment from "./contracts/deployment.json";
 
 export const RPC_URL = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
 export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL || "https://testnet.monadexplorer.com";
-export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
+export const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "cmwicb7jq005w0hi4m7nymdwz";
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || ""; // e.g. https://flock-xyz.vercel.app (used in QR codes)
 
 export const monad = defineChain({
