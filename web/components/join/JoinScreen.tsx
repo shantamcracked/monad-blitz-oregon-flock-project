@@ -64,17 +64,17 @@ function Header({ flock, now }: Pick<JoinScreenProps, "flock"> & { now: number |
   const urgent = left !== null && left < 5 * 60_000;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-flock-line bg-flock-card">
-      <div className="relative h-36 w-full bg-gradient-to-br from-flock-purple/40 via-flock-card to-flock-ink">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/90 shadow-sm">
+      <div className="relative h-36 w-full bg-gradient-to-br from-sky-100 via-white to-slate-100">
         {imgOk && flock.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={flock.imageUrl} alt="" className="h-full w-full object-cover object-[center_35%]" onError={() => setImgOk(false)} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-flock-card from-15% via-flock-card/60 via-40% to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white from-10% via-white/50 via-35% to-transparent" />
         {flock.status === "open" && (
           <div
-            className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-sm font-bold backdrop-blur ${
-              urgent ? "bg-flock-red/90 text-white" : "bg-flock-ink/70 text-white"
+            className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums backdrop-blur ${
+              urgent ? "bg-rose-700 text-white" : "border border-slate-200 bg-white/90 text-slate-950 shadow-sm"
             }`}
           >
             <Clock size={14} aria-hidden />
@@ -83,25 +83,25 @@ function Header({ flock, now }: Pick<JoinScreenProps, "flock"> & { now: number |
         )}
       </div>
       <div className="px-5 pb-5 pt-1">
-        <h1 className="text-2xl font-black leading-tight [overflow-wrap:anywhere]">{flock.title}</h1>
-        <div className="mt-1 flex items-center gap-1.5 text-sm text-white/60">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight [overflow-wrap:anywhere]">{flock.title}</h1>
+        <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-600">
           <Users size={14} aria-hidden />
           <span className="tabular">
-            <b className="text-white">{flock.n}</b> {flock.n === 1 ? "duck" : "ducks"} in · min {flock.minBuyers} · max {flock.maxBuyers}
+            <b className="text-slate-950">{flock.n}</b> {flock.n === 1 ? "duck" : "ducks"} in · min {flock.minBuyers} · max {flock.maxBuyers}
           </span>
         </div>
-        <div className="relative mt-3 h-2 w-full rounded-full bg-flock-line" role="progressbar" aria-valuemin={0} aria-valuemax={flock.maxBuyers} aria-valuenow={flock.n}>
+        <div className="relative mt-3 h-2 w-full rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={flock.maxBuyers} aria-valuenow={flock.n}>
           <motion.div
-            className={`h-full rounded-full ${reachedMin ? "bg-flock-mint" : "bg-flock-purple"}`}
+            className={`h-full rounded-full ${reachedMin ? "bg-emerald-600" : "bg-sky-600"}`}
             initial={false}
             animate={{ width: `${pct}%` }}
             transition={{ type: "spring", stiffness: 120, damping: 20 }}
           />
-          <div className="absolute -top-1 h-4 w-0.5 rounded bg-flock-gold" style={{ left: `calc(${minPct}% - 1px)` }} title={`Minimum: ${flock.minBuyers}`} />
+          <div className="absolute -top-1 h-4 w-0.5 rounded bg-amber-500" style={{ left: `calc(${minPct}% - 1px)` }} title={`Minimum: ${flock.minBuyers}`} />
         </div>
-        <div className="mt-1.5 text-xs text-white/50">
+        <div className="mt-1.5 text-xs text-slate-600">
           {reachedMin ? (
-            <span className="text-flock-mint">Minimum reached — this flock is flying 🦆</span>
+            <span className="font-medium text-emerald-800">Minimum reached — this flock is flying 🦆</span>
           ) : (
             <span>
               {flock.minBuyers - flock.n} more {flock.minBuyers - flock.n === 1 ? "duck" : "ducks"} to reach the minimum
@@ -120,40 +120,40 @@ function JoinedBadge({ flock, me }: Pick<JoinScreenProps, "flock" | "me">) {
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="rounded-3xl border border-flock-mint/40 bg-gradient-to-br from-flock-mint/15 to-flock-purple/10 p-5"
+      className="rounded-xl border border-emerald-200 bg-white/90 p-5 shadow-sm"
     >
-      <div className="text-xs font-bold uppercase tracking-[0.25em] text-flock-mint">You&apos;re in</div>
-      <div className="mt-1 text-4xl font-black">You&apos;re Duck #{me.myIndex ?? "?"} 🦆</div>
+      <div className="inline-block rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">You&apos;re in</div>
+      <div className="mt-2 text-3xl font-semibold tracking-tight">You&apos;re Duck #{me.myIndex ?? "?"} 🦆</div>
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-flock-ink/50 p-3">
-          <div className="text-xs text-white/50">You paid</div>
-          <div className="tabular font-mono text-xl font-bold">{fmtUsd(me.paidAtJoin ?? 0)}</div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs text-slate-600">You paid</div>
+          <div className="tabular text-xl font-semibold tabular-nums">{fmtUsd(me.paidAtJoin ?? 0)}</div>
         </div>
-        <div className="rounded-2xl bg-flock-ink/50 p-3">
-          <div className="text-xs text-white/50">Now everyone pays</div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs text-slate-600">Now everyone pays</div>
           <motion.div
             key={flock.price}
-            initial={{ scale: 1.2, color: "#3DF5A7" }}
-            animate={{ scale: 1, color: "#ffffff" }}
+            initial={{ scale: 1.2, color: "#047857" }}
+            animate={{ scale: 1, color: "#020617" }}
             transition={{ duration: 0.6 }}
-            className="tabular origin-left font-mono text-xl font-bold"
+            className="tabular origin-left text-xl font-semibold tabular-nums"
           >
             {fmtUsd(flock.price)}
           </motion.div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between rounded-2xl bg-flock-mint/10 p-4">
-        <div className="text-sm text-white/70">Rebates so far</div>
+      <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+        <div className="text-sm text-slate-700">Rebates so far</div>
         <motion.div
           key={me.rebatesSoFar}
           initial={{ scale: 1.15 }}
           animate={{ scale: 1 }}
-          className="tabular font-mono text-3xl font-black text-flock-mint"
+          className="tabular text-3xl font-bold tabular-nums text-emerald-800"
         >
           +{fmtUsd(rebate)}
         </motion.div>
       </div>
-      <div className="mt-3 text-xs text-white/60">Every new duck lowers your price and sends you the difference — instantly.</div>
+      <div className="mt-3 text-xs text-slate-600">Every new duck lowers your price and sends you the difference — instantly.</div>
     </motion.div>
   );
 }
@@ -161,19 +161,19 @@ function JoinedBadge({ flock, me }: Pick<JoinScreenProps, "flock" | "me">) {
 function StatusCard({ flock }: Pick<JoinScreenProps, "flock">) {
   const flew = flock.status === "success";
   return (
-    <div className={`rounded-3xl border p-5 text-center ${flew ? "border-flock-mint/40 bg-flock-mint/10" : "border-flock-gold/40 bg-flock-gold/10"}`}>
+    <div className={`rounded-xl border p-5 text-center ${flew ? "border-emerald-200 bg-white/90 shadow-sm" : "border-amber-200 bg-white/90 shadow-sm"}`}>
       <div className="text-4xl">{flew ? "🎉" : "🛟"}</div>
-      <div className={`mt-2 text-xl font-black ${flew ? "text-flock-mint" : "text-flock-gold"}`}>
+      <div className={`mt-2 text-xl font-semibold ${flew ? "text-emerald-800" : "text-amber-800"}`}>
         {flew ? "This flock flew!" : "Refunded + bonus"}
       </div>
-      <div className="mt-1 text-sm text-white/70">
+      <div className="mt-1 text-sm text-slate-600">
         {flew
           ? `Final price ${fmtUsd(flock.price)} with ${flock.n} ducks.`
           : `It didn't reach ${flock.minBuyers} ducks — every buyer got a full refund + ${fmtUsd(flock.bonusPerBuyer)} bonus.`}
       </div>
       <a
         href={`/receipt/${flock.id}`}
-        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-2xl bg-white/10 text-base font-bold active:scale-[0.98]"
+        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg border border-sky-200 bg-white text-base font-semibold text-sky-800 hover:bg-sky-50 active:scale-[0.98]"
       >
         View your receipt →
       </a>
@@ -184,12 +184,12 @@ function StatusCard({ flock }: Pick<JoinScreenProps, "flock">) {
 function HowItWorks() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-flock-line bg-flock-card">
+    <div className="rounded-xl border border-slate-200 bg-white/90 shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex min-h-12 w-full items-center justify-between px-4 text-left text-sm font-bold"
+        className="flex min-h-12 w-full items-center justify-between px-4 text-left text-sm font-semibold"
       >
         How does this work?
         <ChevronDown size={18} aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -200,24 +200,24 @@ function HowItWorks() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden px-4 text-sm text-white/70"
+            className="overflow-hidden px-4 text-sm text-slate-600"
           >
             <li className="flex gap-2 pb-2">
               <span>💸</span>
               <span>
-                <b className="text-white">Price = setup cost ÷ ducks + per-unit cost.</b> More ducks, lower price.
+                <b className="text-slate-950">Price = setup cost ÷ ducks + per-unit cost.</b> More ducks, lower price.
               </span>
             </li>
             <li className="flex gap-2 pb-2">
               <span>⚡</span>
               <span>
-                <b className="text-white">Every join rebates everyone instantly</b> — earlier ducks get the difference back in the same Monad block.
+                <b className="text-slate-950">Every join rebates everyone instantly</b> — earlier ducks get the difference back in the same Monad block.
               </span>
             </li>
             <li className="flex gap-2 pb-4">
               <span>🛡</span>
               <span>
-                <b className="text-white">If it fails, you get a full refund + a bonus</b> paid by the seller.
+                <b className="text-slate-950">If it fails, you get a full refund + a bonus</b> paid by the seller.
               </span>
             </li>
           </motion.ul>
@@ -257,11 +257,11 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
   const canJoin = !closed && !full && !pastDeadline;
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col overflow-x-hidden bg-flock-ink px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-white">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col overflow-x-hidden bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-slate-950">
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-xs font-bold uppercase tracking-[0.3em] text-flock-purple">Flock 🦆</div>
+        <div className="flex items-center gap-2 text-lg font-semibold tracking-tight"><span className="rounded-lg bg-sky-300/10 p-1.5 text-sky-800">🦆</span>Flock</div>
         {loggedIn && onLogout && (
-          <button type="button" onClick={onLogout} className="min-h-12 px-2 text-xs text-white/50 underline-offset-2 hover:underline">
+          <button type="button" onClick={onLogout} className="min-h-12 px-2 text-sm text-slate-600 underline-offset-4 hover:text-slate-950 hover:underline">
             Sign out
           </button>
         )}
@@ -271,7 +271,7 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
 
       <div className="mt-4 space-y-4">
         {error && (
-          <div role="alert" className="flex items-start gap-2 rounded-2xl border border-flock-red/40 bg-flock-red/15 p-4 text-sm text-flock-red">
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
             <TriangleAlert size={18} className="mt-0.5 shrink-0" aria-hidden />
             <span className="[overflow-wrap:anywhere]">{error}</span>
           </div>
@@ -283,19 +283,19 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
           <StatusCard flock={flock} />
         ) : (
           !me.joined && (
-            <div className="rounded-3xl border border-flock-line bg-flock-card p-5">
-              <div className="text-sm text-white/60">{canJoin ? "Join at" : full ? "This flock is full" : "Deadline passed"}</div>
+            <div className="rounded-xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+              <div className="text-sm text-slate-600">{canJoin ? "Join at" : full ? "This flock is full" : "Deadline passed"}</div>
               <motion.div
                 key={flock.nextPrice}
-                initial={{ scale: 1.12, color: "#3DF5A7" }}
-                animate={{ scale: 1, color: "#ffffff" }}
+                initial={{ scale: 1.12, color: "#047857" }}
+                animate={{ scale: 1, color: "#020617" }}
                 transition={{ duration: 0.6 }}
-                className="tabular origin-left font-mono text-6xl font-black leading-none tracking-tight"
+                className="tabular mt-1 origin-left text-6xl font-bold leading-none tracking-tight tabular-nums"
               >
                 {fmtUsd(flock.nextPrice)}
               </motion.div>
-              <div className="mt-2 text-sm text-white/50">
-                Alone it would be <span className="font-mono line-through decoration-flock-red/80">{fmtUsd(flock.soloPrice)}</span>
+              <div className="mt-2 text-sm text-slate-600">
+                Alone it would be <span className="tabular-nums line-through decoration-rose-600/80">{fmtUsd(flock.soloPrice)}</span>
               </div>
 
               <button
@@ -303,7 +303,7 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
                 onClick={loggedIn ? onJoin : onLogin}
                 disabled={busy || (loggedIn && !canJoin)}
                 aria-busy={busy}
-                className="mt-5 flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl bg-flock-purple px-4 py-4 text-xl font-black shadow-lg shadow-flock-purple/30 transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 flex min-h-16 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 py-4 text-xl font-semibold text-white shadow-sm hover:bg-sky-900 transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? (
                   <>
@@ -316,24 +316,24 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
                   "Sign in with email to join"
                 )}
               </button>
-              {!loggedIn && <div className="mt-2 text-center text-xs text-white/40">No wallet or gas needed.</div>}
+              {!loggedIn && <div className="mt-2 text-center text-xs text-slate-600">No wallet or gas needed.</div>}
             </div>
           )
         )}
 
-        <div className="flex gap-3 rounded-2xl border border-flock-gold/30 bg-flock-gold/10 p-4 text-sm text-white/80">
-          <ShieldCheck size={22} className="shrink-0 text-flock-gold" aria-hidden />
+        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
+          <ShieldCheck size={22} className="shrink-0 text-amber-700" aria-hidden />
           <div>
-            If this flock doesn&apos;t reach <b className="text-white">{flock.minBuyers}</b> by the deadline, you get a{" "}
-            <b className="text-flock-gold">full refund + {fmtUsd(flock.bonusPerBuyer)} bonus</b>. Joining can&apos;t lose.
+            If this flock doesn&apos;t reach <b className="text-slate-950">{flock.minBuyers}</b> by the deadline, you get a{" "}
+            <b className="text-amber-800">full refund + {fmtUsd(flock.bonusPerBuyer)} bonus</b>. Joining can&apos;t lose.
           </div>
         </div>
 
         <HowItWorks />
       </div>
 
-      <div className="mt-auto pt-6 text-center text-xs text-white/40">
-        {loggedIn ? <>Test wallet balance <span className="tabular font-mono">{fmtUsd(me.balance)}</span> · </> : null}
+      <div className="mt-auto pt-6 text-center text-xs text-slate-500">
+        {loggedIn ? <>Test wallet balance <span className="tabular tabular-nums">{fmtUsd(me.balance)}</span> · </> : null}
         Monad testnet
       </div>
 
@@ -347,7 +347,7 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 26 }}
-            className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-flock-mint px-4 py-3 font-bold text-flock-ink shadow-xl shadow-flock-mint/20"
+            className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white shadow-lg"
           >
             <Sparkles size={18} className="shrink-0" aria-hidden />
             <span className="[overflow-wrap:anywhere]">{toast}</span>

@@ -33,8 +33,8 @@ function Segmented<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">{label}</div>
-      <div role="tablist" aria-label={label} className="grid grid-flow-col auto-cols-fr gap-1 rounded-2xl bg-flock-ink p-1">
+      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">{label}</div>
+      <div role="tablist" aria-label={label} className="grid grid-flow-col auto-cols-fr gap-1 rounded-xl bg-slate-200/70 p-1">
         {options.map((o) => {
           const on = o.value === value;
           return (
@@ -44,8 +44,8 @@ function Segmented<T extends string>({
               role="tab"
               aria-selected={on}
               onClick={() => onChange(o.value)}
-              className={`min-h-12 rounded-xl px-2 text-sm font-bold transition active:scale-[0.97] ${
-                on ? "bg-flock-purple text-white shadow-md shadow-flock-purple/30" : "text-white/60"
+              className={`min-h-12 rounded-lg px-2 text-sm font-semibold transition active:scale-[0.97] ${
+                on ? "bg-white text-slate-950 shadow-sm" : "text-slate-700"
               }`}
             >
               {o.label}
@@ -63,11 +63,11 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold transition active:scale-[0.97] ${
-        on ? "border-flock-purple bg-flock-purple/20 text-white" : "border-flock-line bg-flock-ink text-white/60"
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition active:scale-[0.97] ${
+        on ? "border-sky-300 bg-sky-100 text-slate-950" : "border-slate-200 bg-white text-slate-700"
       }`}
     >
-      <span className={`h-2.5 w-2.5 rounded-full ${on ? "bg-flock-mint" : "bg-white/20"}`} aria-hidden />
+      <span className={`h-2.5 w-2.5 rounded-full ${on ? "bg-emerald-600" : "bg-slate-300"}`} aria-hidden />
       {children}
     </button>
   );
@@ -111,8 +111,8 @@ export default function PreviewJoin() {
   const statusLabel = STATUS.find((s) => s.value === status)?.label;
 
   return (
-    <div className="min-h-[100dvh] overflow-x-clip bg-flock-ink text-white">
-      <div className="sticky top-0 z-40 border-b border-flock-line bg-flock-card/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
+    <div className="min-h-[100dvh] overflow-x-clip bg-[#f4f7fb] text-slate-950">
+      <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 shadow-sm px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
         <div className="mx-auto max-w-md">
           <button
             type="button"
@@ -121,14 +121,14 @@ export default function PreviewJoin() {
             className="flex min-h-12 w-full items-center justify-between gap-2 text-left"
           >
             <span className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 rounded-full bg-flock-gold/20 px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-flock-gold">
+              <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800">
                 Preview
               </span>
-              <span className="truncate text-sm text-white/70">
+              <span className="truncate text-sm text-slate-600">
                 {open ? "Pick what to see" : `${whoLabel} · ${statusLabel}${busy ? " · Busy" : ""}${error ? " · Error" : ""}`}
               </span>
             </span>
-            <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-white/60">
+            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-600">
               {open ? "Hide" : "Show"}
               <ChevronDown size={18} aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`} />
             </span>
@@ -139,7 +139,7 @@ export default function PreviewJoin() {
               <Segmented label="Who's looking" value={who} options={WHO} onChange={setWho} />
               <Segmented label="Flock status" value={status} options={STATUS} onChange={setStatus} />
               <div>
-                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">Extras</div>
+                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Extras</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Toggle on={busy} onClick={toggleBusy}>
                     Busy
@@ -171,7 +171,7 @@ export default function PreviewJoin() {
       {note && (
         <div
           role="status"
-          className="fixed inset-x-4 top-[calc(5rem+env(safe-area-inset-top))] z-50 mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-flock-ink shadow-xl"
+          className="fixed inset-x-4 top-[calc(5rem+env(safe-area-inset-top))] z-50 mx-auto flex max-w-md items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg"
         >
           <Info size={18} className="shrink-0" aria-hidden />
           {note}
