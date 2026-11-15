@@ -1,5 +1,5 @@
 import "server-only";
-import { createPublicClient, createWalletClient, http, type Abi, type Hex } from "viem";
+import { createPublicClient, createWalletClient, fallback, http, type Abi, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { monad, RPC_URL, FLOCK_ADDRESS, USD_ADDRESS } from "../config";
 import FlockAbiJson from "../contracts/FlockAbi.json";
@@ -8,9 +8,18 @@ import FlockUSDAbiJson from "../contracts/FlockUSDAbi.json";
 export const FlockAbi = FlockAbiJson as Abi;
 export const FlockUSDAbi = FlockUSDAbiJson as Abi;
 
-// Server can use a private (faster, higher rate-limit) RPC like Alchemy/QuickNode.
-const SERVER_RPC = process.env.MONAD_RPC_URL_SERVER || RPC_URL;
-export const publicClient = createPublicClient({ chain: monad, transport: http(SERVER_RPC, { batch: true }) });
+// The official public RPC 429s after ~20 req/burst. Fail over across free Monad testnet RPCs
+// (a private one in MONAD_RPC_URL_SERVER goes first; the official RPC is always last).
+const PRIVATE_RPC = process.env.MONAD_RPC_URL_SERVER;
+const RPC_URLS = [
+  PRIVATE_RPC && PRIVATE_RPC.replace(/\/$/, "") !== RPC_URL.replace(/\/$/, "") ? PRIVATE_RPC : undefined,
+  "https://rpc.ankr.com/monad_testnet",
+  "https://monad-testnet.drpc.org",
+  "https://10143.rpc.thirdweb.com",
+  RPC_URL,
+].filter((u, i, a): u is string => !!u && a.indexOf(u) === i);
+const rpc = () => fallback(RPC_URLS.map((u) => http(u, { batch: true, retryCount: 2, retryDelay: 150 })));
+export const publicClient = createPublicClient({ chain: monad, transport: rpc() });
 
 function relayerKeys(): Hex[] {
   const raw = process.env.RELAYER_PRIVATE_KEYS || process.env.DEPLOYER_PRIVATE_KEY || "";
@@ -20,10 +29,10 @@ function relayerKeys(): Hex[] {
 export function adminWallet() {
   const k = process.env.DEPLOYER_PRIVATE_KEY;
   if (!k) throw new Error("DEPLOYER_PRIVATE_KEY missing in env");
-  return createWalletClient({ chain: monad, account: privateKeyToAccount((k.startsWith("0x") ? k : `0x${k}`) as Hex), transport: http(SERVER_RPC) });
+  return createWalletClient({ chain: monad, account: privateKeyToAccount((k.startsWith("0x") ? k : `0x${k}`) as Hex), transport: rpc() });
 }
 
-const RETRYABLE = /nonce|underpriced|already known|replacement|timeout|fetch failed|429|rate|temporarily/i;
+const RETRYABLE = /nonce|underpriced|already known|replacement|timeout|timed out|fetch failed|HTTP request failed|429|rate|temporarily/i;
 
 /**
  * Sends a contract write from one of the relayer wallets (they pay gas so users never need MON).
@@ -35,7 +44,7 @@ export async function relayWrite(args: { address: `0x${string}`; abi: Abi; funct
   let lastErr: unknown;
   for (let attempt = 0; attempt < 5; attempt++) {
     const account = privateKeyToAccount(keys[(Math.floor(Math.random() * keys.length) + attempt) % keys.length]);
-    const wallet = createWalletClient({ chain: monad, account, transport: http(SERVER_RPC) });
+    const wallet = createWalletClient({ chain: monad, account, transport: rpc() });
     try {
       // simulate first → clean revert reasons, and an accurate gas estimate
       const { request } = await publicClient.simulateContract({ account, ...args });
