@@ -101,9 +101,13 @@ export default function PreviewJoin() {
   // gesture doesn't bounce between the preview and a receipt page.
   const stayOnPage = (e: MouseEvent<HTMLDivElement>) => {
     const a = (e.target as HTMLElement).closest("a");
-    if (a && a.getAttribute("href")?.startsWith("/receipt")) {
+    const href = a?.getAttribute("href") ?? "";
+    if (href.startsWith("/receipt")) {
       e.preventDefault();
       setNote("In the real app this opens the receipt.");
+    } else if (href.startsWith("/f/")) {
+      e.preventDefault();
+      setNote("In the real app this opens that flock.");
     }
   };
 
