@@ -1,0 +1,24 @@
+{
+  "name": "flock-contracts",
+  "version": "1.0.0",
+  "description": "Flock contracts (npm-only toolchain: solc-js + ganache + viem)",
+  "scripts": {
+    "build": "node scripts/compile.mjs",
+    "test": "node scripts/compile.mjs && node --test test/flock.test.mjs",
+    "deploy": "node scripts/compile.mjs && node scripts/deploy.mjs",
+    "seed": "node scripts/seed.mjs",
+    "relayers:new": "node scripts/relayers.mjs new",
+    "relayers:fund": "node scripts/relayers.mjs fund",
+    "loadtest": "node scripts/loadtest.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "dotenv": "^18.0.10",
+    "ganache": "^7.9.2",
+    "solc": "^0.8.26",
+    "viem": "^2.57.20"
+  },
+  "type": "module"
+}

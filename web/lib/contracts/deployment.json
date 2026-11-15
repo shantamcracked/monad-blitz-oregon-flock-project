@@ -1,0 +1,8 @@
+{
+  "chainId": 10143,
+  "flock": "0x0000000000000000000000000000000000000000",
+  "usd": "0x0000000000000000000000000000000000000000",
+  "treasury": "",
+  "deployer": "",
+  "deployedAt": "NOT DEPLOYED YET - run npm run deploy in /contracts"
+}

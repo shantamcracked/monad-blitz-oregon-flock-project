@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Flock brand tokens — use these names in Tailwind classes: bg-flock-purple, text-flock-mint, etc. */
+@theme {
+  --color-flock-purple: #836EF9;   /* Monad purple — primary */
+  --color-flock-purple-dark: #5B45D6;
+  --color-flock-ink: #0E0B1A;      /* background */
+  --color-flock-card: #1A1530;     /* cards */
+  --color-flock-line: #2E2650;     /* borders */
+  --color-flock-mint: #3DF5A7;     /* money back / success */
+  --color-flock-gold: #FFC94D;     /* bonus / warnings */
+  --color-flock-red: #FF5C7A;      /* fail */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
