@@ -13,13 +13,14 @@ export const FlockUSDAbi = FlockUSDAbiJson as Abi;
 const PRIVATE_RPC = process.env.MONAD_RPC_URL_SERVER;
 const RPC_URLS = [
   PRIVATE_RPC && PRIVATE_RPC.replace(/\/$/, "") !== RPC_URL.replace(/\/$/, "") ? PRIVATE_RPC : undefined,
-  "https://rpc.ankr.com/monad_testnet",
-  "https://monad-testnet.drpc.org",
+  "https://monad-testnet.drpc.org", // fastest in testing (~110ms)
   "https://10143.rpc.thirdweb.com",
+  "https://rpc.ankr.com/monad_testnet",
   RPC_URL,
 ].filter((u, i, a): u is string => !!u && a.indexOf(u) === i);
 const rpc = () => fallback(RPC_URLS.map((u) => http(u, { batch: true, retryCount: 2, retryDelay: 150 })));
-export const publicClient = createPublicClient({ chain: monad, transport: rpc() });
+// Poll receipts every 250ms (viem's default is 4s, which made every relayed tx feel slow on ~400ms Monad blocks)
+export const publicClient = createPublicClient({ chain: monad, transport: rpc(), pollingInterval: 250 });
 
 function relayerKeys(): Hex[] {
   const raw = process.env.RELAYER_PRIVATE_KEYS || process.env.DEPLOYER_PRIVATE_KEY || "";
@@ -32,7 +33,7 @@ export function adminWallet() {
   return createWalletClient({ chain: monad, account: privateKeyToAccount((k.startsWith("0x") ? k : `0x${k}`) as Hex), transport: rpc() });
 }
 
-const RETRYABLE = /nonce|underpriced|already known|replacement|timeout|timed out|fetch failed|HTTP request failed|429|rate|temporarily/i;
+const RETRYABLE = /nonce|underpriced|already known|replacement|timeout|timed out|fetch failed|HTTP request failed|429|rate|temporarily|Missing or invalid parameters|invalid params|-32602|internal error/i;
 
 /**
  * Sends a contract write from one of the relayer wallets (they pay gas so users never need MON).
@@ -73,6 +74,7 @@ export function humanError(e: unknown): string {
   const err = e as { shortMessage?: string; message?: string; cause?: { data?: { errorName?: string }; reason?: string } };
   // look everywhere viem might put the custom error name (shortMessage, full message, decoded cause)
   const m = [err?.cause?.data?.errorName, err?.cause?.reason, err?.shortMessage, err?.message, String(e)].filter(Boolean).join(" | ");
+  if (/insufficient balance|insufficient funds/i.test(m)) return "Relayer wallets are out of gas (MON). Run: cd contracts && npm run relayers:fund 1";
   if (/AlreadyJoined/.test(m)) return "You're already in this flock 🦆";
   if (/Full/.test(m)) return "This flock is full!";
   if (/NotOpen/.test(m)) return "This flock is closed.";
