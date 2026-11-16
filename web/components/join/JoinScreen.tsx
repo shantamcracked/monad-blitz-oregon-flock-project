@@ -550,7 +550,7 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
 
   return (
     <main className="min-h-[100dvh] w-full overflow-x-clip bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] px-4 pt-[max(1.75rem,env(safe-area-inset-top))] pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-slate-950 sm:px-8">
-      <div className="mx-auto max-w-md space-y-6 lg:max-w-6xl">
+      <div className="mx-auto max-w-md space-y-6 md:max-w-6xl">
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-5">
           <div className="flex items-center gap-3">
             <span className="rounded-lg bg-sky-300/10 p-2 text-sky-800">
@@ -565,8 +565,8 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
           )}
         </header>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <aside className="space-y-5 lg:sticky lg:top-6">
+        <div className="grid items-start gap-6 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <aside className="space-y-5 md:sticky md:top-6">
             <MoneyCard flock={flock} me={me} loggedIn={loggedIn} busy={busy} canJoin={canJoin} onLogin={onLogin} onJoin={onJoin} />
             <FlockNav flock={flock} now={now} />
           </aside>
