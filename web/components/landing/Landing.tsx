@@ -107,7 +107,7 @@ export default function Landing({ flocks, onStartFlock }: LandingProps) {
   const closed = flocks.filter((f) => f.status !== "open");
   return (
     <main className="min-h-[100dvh] w-full overflow-x-clip bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] px-4 pt-[max(1.75rem,env(safe-area-inset-top))] pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-slate-950 sm:px-8">
-      <div className="mx-auto max-w-md space-y-8 lg:max-w-6xl">
+      <div className="mx-auto max-w-md space-y-8 md:max-w-6xl">
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-5">
           <div className="flex items-center gap-3">
             <span className="rounded-lg bg-sky-300/10 p-2 text-sky-800">
@@ -124,7 +124,7 @@ export default function Landing({ flocks, onStartFlock }: LandingProps) {
           </button>
         </header>
 
-        <section className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_20rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div>
             <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">The group buy that gets cheaper every block.</h1>
             <p className="mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
@@ -160,7 +160,7 @@ export default function Landing({ flocks, onStartFlock }: LandingProps) {
             <span className="text-sm text-slate-600">{open.length} open</span>
           </div>
           {flocks.length ? (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[...open, ...closed].map((f) => (
                 <FlockCard key={f.id} f={f} />
               ))}
