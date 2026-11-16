@@ -79,3 +79,26 @@ export async function readBalance(address: `0x${string}`): Promise<number> {
 export async function readNonce(address: `0x${string}`): Promise<bigint> {
   return (await publicClient.readContract({ address: FLOCK_ADDRESS, abi: FlockAbi, functionName: "nonces", args: [address] })) as bigint;
 }
+
+export type Settlement = { kind: "purchase" | "refund"; txHash: string; block: number; paidToSeller: number | null; fee: number | null };
+const settled = new Map<number, Settlement>(); // settled flocks never change → cache forever
+
+/** Finds the on-chain tx that bought (or refunded) a settled flock, via Flock.settledBlock + a 1-block log query. */
+export async function readSettlement(id: number): Promise<Settlement | null> {
+  const hit = settled.get(id);
+  if (hit) return hit;
+  return cached(`settle:${id}`, 2000, async () => {
+    const block = (await publicClient.readContract({ address: FLOCK_ADDRESS, abi: FlockAbi, functionName: "settledBlock", args: [BigInt(id)] })) as bigint;
+    if (!block) return null;
+    const [s] = (await publicClient.getContractEvents({ address: FLOCK_ADDRESS, abi: FlockAbi, eventName: "Settled", args: { id: BigInt(id) }, fromBlock: block, toBlock: block })) as unknown as { transactionHash: string; args: { success: boolean } }[];
+    if (!s) return null;
+    let paidToSeller: number | null = null, fee: number | null = null;
+    if (s.args.success) {
+      const [p] = (await publicClient.getContractEvents({ address: FLOCK_ADDRESS, abi: FlockAbi, eventName: "Purchased", args: { id: BigInt(id) }, fromBlock: block, toBlock: block })) as unknown as { args: { paidToSeller: bigint; fee: bigint } }[];
+      if (p) { paidToSeller = Number(p.args.paidToSeller) / D; fee = Number(p.args.fee) / D; }
+    }
+    const out: Settlement = { kind: s.args.success ? "purchase" : "refund", txHash: s.transactionHash, block: Number(block), paidToSeller, fee };
+    settled.set(id, out);
+    return out;
+  });
+}
