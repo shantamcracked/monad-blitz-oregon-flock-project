@@ -46,8 +46,8 @@ export function PillButton({
       onClick={onClick}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      whileTap={reduced || disabled || loading ? undefined : { scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      whileTap={{ scale: disabled || loading ? 1 : 0.97 }}
+      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30 }}
       className={`inline-flex items-center justify-center gap-2 rounded-[22px] font-semibold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836EF9] focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50 ${
         size === "lg" ? "min-h-[56px] px-7 text-[17px]" : "min-h-[44px] px-5 text-[15px]"
       } ${STYLES[variant]} ${className}`}

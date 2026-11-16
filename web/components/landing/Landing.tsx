@@ -1,175 +1,288 @@
 "use client";
-// OWNER: Teammate A (Board & Story). Home page: what Flock is + list of live flocks.
+// OWNER: Teammate A (Board & Story). Home page — an apple.com product page.
 // Keep the props interface (LandingProps) exactly the same.
-// Visual language matches the join/create screens (light "bookings" style).
 import Link from "next/link";
-import {
-  ArrowRight,
-  Bus,
-  CircleDollarSign,
-  House,
-  Mountain,
-  Plus,
-  Shirt,
-  ShieldCheck,
-  TrainFront,
-  TrendingDown,
-  Users,
-  Utensils,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { MotionConfig, motion } from "framer-motion";
+import { ArrowRight, Bus, CircleDollarSign, Plus, Shirt, ShieldCheck, TrendingDown, Trophy, Users, Utensils, type LucideIcon } from "lucide-react";
 import type { FlockState, LandingProps } from "@/lib/types";
 import { fmtUsd } from "@/lib/flock-math";
+import { makeMockFlock, useMockFlock } from "@/lib/mock";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { PhoneFrame } from "@/components/ui/PhoneFrame";
+import { PillButton } from "@/components/ui/PillButton";
+import { ProgressRail } from "@/components/ui/ProgressRail";
 
-const card = "rounded-xl border border-slate-200 bg-white/90 shadow-sm";
-
-function iconFor(title: string): LucideIcon {
-  const t = title.toLowerCase();
-  if (/van|bus|shuttle|ride|pdx/.test(t)) return t.includes("ski") ? Mountain : Bus;
-  if (/cabin|house|lodge|stay|airbnb/.test(t)) return House;
-  if (/hoodie|shirt|merch|tee/.test(t)) return Shirt;
-  if (/taco|dinner|food|lunch|pizza|meal/.test(t)) return Utensils;
-  if (/train|rail/.test(t)) return TrainFront;
-  return Users;
-}
+const SW = 1.75;
+const reveal = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { type: "spring", stiffness: 300, damping: 30 },
+} as const;
 
 function cleanTitle(title: string): string {
   return title.replace(/[\p{Extended_Pictographic}‍️]/gu, "").replace(/\s{2,}/g, " ").trim();
 }
 
 function statusOf(f: FlockState): { label: string; tone: string } {
-  if (f.status === "success") return { label: "Confirmed", tone: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  if (f.status === "failed") return { label: "Canceled", tone: "border-rose-200 bg-rose-50 text-rose-800" };
-  if (f.n >= f.maxBuyers) return { label: "Full", tone: "border-slate-200 bg-slate-50 text-slate-700" };
-  if (f.n >= f.minBuyers) return { label: "Minimum reached", tone: "border-sky-200 bg-sky-50 text-sky-900" };
-  return { label: "Still filling", tone: "border-sky-200 bg-sky-50 text-sky-900" };
+  if (f.status === "success") return { label: "Flew", tone: "bg-[#30D158]/15 text-[#30D158]" };
+  if (f.status === "failed") return { label: "Refunded", tone: "bg-[#FFD60A]/15 text-[#FFD60A]" };
+  if (f.n >= f.maxBuyers) return { label: "Full", tone: "bg-white/10 text-white/70" };
+  if (f.n >= f.minBuyers) return { label: "Flying", tone: "bg-[#30D158]/15 text-[#30D158]" };
+  return { label: "Filling", tone: "bg-[#836EF9]/20 text-[#b5a8ff]" };
 }
 
-const STEPS = [
-  { icon: TrendingDown, title: "Price drops with every Duck", body: "Each new buyer lowers the price for everyone already in." },
-  { icon: CircleDollarSign, title: "Rebates in the same block", body: "The difference lands back in your wallet in ~300ms on Monad." },
-  { icon: ShieldCheck, title: "No-lose if it doesn't fill", body: "Full refund plus a seller-funded bonus for trying." },
+/* ── phone screen mockups (mock data only) ── */
+
+const MOCK_PASS = makeMockFlock(7);
+
+function PassScreen() {
+  return (
+    <div className="min-h-full bg-[#0A0A0F] px-6 pt-16 text-white">
+      <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-[#836EF9]">Flock</p>
+      <p className="mt-2 text-[32px] font-semibold leading-tight tracking-tight">Van to PDX</p>
+      <div className="mt-8 rounded-[28px] bg-[linear-gradient(135deg,#6d5ae6_0%,#836EF9_45%,#4b3bb8_100%)] p-6 shadow-[0_30px_60px_-20px_rgba(131,110,249,0.6)]">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/70">Flock pass</p>
+        <p className="mt-1 text-[30px] font-semibold tracking-tight">You&apos;re Duck #4</p>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[13px] text-white/70">You paid</p>
+            <p className="text-[20px] font-semibold tabular-nums">{fmtUsd(75)}</p>
+          </div>
+          <div>
+            <p className="text-[13px] text-white/70">Now everyone pays</p>
+            <p className="text-[20px] font-semibold tabular-nums">{fmtUsd(MOCK_PASS.price)}</p>
+          </div>
+        </div>
+        <div className="mt-5 border-t border-dashed border-white/30 pt-4">
+          <p className="text-[13px] text-white/80">Money back so far</p>
+          <p className="text-[40px] font-semibold tracking-tight text-[#b9ffcb]">+$25.00</p>
+        </div>
+      </div>
+      <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.06] p-4">
+        <p className="flex items-center gap-2 text-[15px] text-[#30D158]">
+          <ShieldCheck size={18} strokeWidth={SW} /> Full refund + bonus if it doesn&apos;t fill
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PriceScreen() {
+  const { flock } = useMockFlock({ start: 3, everyMs: 2200 });
+  return (
+    <div className="min-h-full bg-black px-6 pt-16 text-white">
+      <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-[#836EF9]">Live</p>
+      <p className="mt-2 text-[28px] font-semibold tracking-tight">Price per person</p>
+      <div className="mt-6 text-[76px] font-semibold leading-none tracking-[-0.04em] [text-shadow:0_0_50px_rgba(131,110,249,0.5)]">
+        <AnimatedNumber value={flock.price} />
+      </div>
+      <p className="mt-3 text-[17px] text-white/30 line-through">alone {fmtUsd(flock.soloPrice)}</p>
+      <div className="mt-8">
+        <ProgressRail n={flock.n} max={flock.maxBuyers} min={flock.minBuyers} />
+      </div>
+      <div className="mt-8 space-y-2">
+        {flock.feed.slice(0, 4).map((e) => (
+          <div key={e.id} className="rounded-[18px] border border-white/10 bg-white/[0.06] px-4 py-3 text-[14px] leading-snug text-white/75">
+            {e.text}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── sections ── */
+
+const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: Users, title: "Start or scan.", body: "Someone sets the costs and group size. Everyone else scans a QR and signs in with email. No wallet, no gas." },
+  { icon: TrendingDown, title: "Every Duck lowers the price.", body: "Each person who joins splits the fixed cost further — and everyone already in gets the difference back instantly." },
+  { icon: ShieldCheck, title: "It flies, or you get paid.", body: "Hit the minimum and it settles in one Monad block. Miss it and everyone gets a full refund plus a bonus." },
+];
+
+const WHY = [
+  { title: "Average-cost sharing.", body: "The van costs the same whether 6 or 12 people ride. More riders means a smaller share each." },
+  { title: "Instant retroactive rebates.", body: "Joining early never costs more. When the price drops, earlier buyers are refunded in the same ~300ms block." },
+  { title: "Dominant assurance contract.", body: "The seller posts a bond. If the flock fails, every buyer is refunded and paid a bonus — so joining is always the right move." },
+];
+
+const USES: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: Bus, title: "Van to PDX", body: "Split the rental for the airport run." },
+  { icon: Shirt, title: "Club merch", body: "Bulk hoodies get cheaper per order." },
+  { icon: Utensils, title: "Group dinners", body: "Private room fee, shared by the table." },
+  { icon: Trophy, title: "Game-day bus", body: "Charter the bus once enough fans join." },
 ];
 
 function FlockCard({ f }: { f: FlockState }) {
-  const Icon = iconFor(f.title);
   const s = statusOf(f);
-  const price = f.n ? f.price : f.soloPrice;
-  const pct = Math.min(100, Math.round((f.n / Math.max(1, f.maxBuyers)) * 100));
-  const minPct = Math.min(100, Math.round((f.minBuyers / Math.max(1, f.maxBuyers)) * 100));
   return (
     <Link
       href={`/f/${f.id}`}
-      className={`${card} group flex min-w-0 flex-col p-5 transition hover:border-sky-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300`}
+      className="group block rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#836EF9] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="flex min-w-[10rem] flex-1 items-center gap-2 text-base font-semibold">
-          <Icon size={18} className="shrink-0 text-sky-800" aria-hidden="true" />
-          <span className="min-w-0 [overflow-wrap:anywhere]">{cleanTitle(f.title)}</span>
-        </h3>
-        <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${s.tone}`}>{s.label}</span>
-      </div>
-
-      <div className="mt-4 flex items-baseline gap-2">
-        <span className="tabular text-3xl font-semibold tracking-tight">{fmtUsd(price)}</span>
-        <span className="text-sm text-slate-600">per person</span>
-      </div>
-      {f.n > 0 && f.soloPrice > price && (
-        <p className="mt-0.5 text-sm text-emerald-700">
-          <span className="line-through decoration-slate-400 text-slate-500">{fmtUsd(f.soloPrice)}</span> alone
-        </p>
-      )}
-
-      <div className="mt-4">
-        <div className="relative h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
-          <div className="h-full rounded-full bg-sky-400 transition-[width]" style={{ width: `${pct}%` }} />
-          {f.minBuyers < f.maxBuyers && <div className="absolute inset-y-0 w-0.5 bg-slate-500/60" style={{ left: `${minPct}%` }} />}
+      <GlassCard className="flex h-full flex-col p-6 transition-colors group-hover:bg-white/[0.09]">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="min-w-0 text-[19px] font-semibold leading-snug tracking-tight [overflow-wrap:anywhere]">{cleanTitle(f.title)}</h3>
+          <span className={`shrink-0 rounded-full px-3 py-1 text-[13px] font-semibold ${s.tone}`}>{s.label}</span>
         </div>
-        <p className="mt-2 flex items-center justify-between text-xs text-slate-600">
-          <span className="flex items-center gap-1">
-            <Users size={13} aria-hidden="true" />
-            {f.n}/{f.maxBuyers} ducks
-          </span>
-          <span>min {f.minBuyers}</span>
-        </p>
-      </div>
-
-      <span className="mt-4 flex items-center gap-1 text-sm font-semibold text-sky-800">
-        View flock <ArrowRight size={15} className="transition group-hover:translate-x-0.5" aria-hidden="true" />
-      </span>
+        <div className="mt-5 text-[44px] font-semibold leading-none tracking-[-0.03em]">
+          <AnimatedNumber value={f.n ? f.price : f.soloPrice} />
+        </div>
+        <p className="mt-2 text-[15px] text-white/30 line-through">alone {fmtUsd(f.soloPrice)}</p>
+        <ProgressRail className="mt-5" n={f.n} max={f.maxBuyers} min={f.minBuyers} />
+        <span className="mt-5 inline-flex items-center gap-1 text-[15px] font-semibold text-[#a796ff]">
+          View flock <ArrowRight size={16} strokeWidth={SW} className="transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </GlassCard>
     </Link>
   );
 }
 
 export default function Landing({ flocks, onStartFlock }: LandingProps) {
-  const open = flocks.filter((f) => f.status === "open");
-  const closed = flocks.filter((f) => f.status !== "open");
+  const ordered = [...flocks.filter((f) => f.status === "open"), ...flocks.filter((f) => f.status !== "open")];
   return (
-    <main className="min-h-[100dvh] w-full overflow-x-clip bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] px-4 pt-[max(1.75rem,env(safe-area-inset-top))] pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-slate-950 sm:px-8">
-      <div className="mx-auto max-w-md space-y-8 md:max-w-6xl">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-5">
-          <div className="flex items-center gap-3">
-            <span className="rounded-lg bg-sky-300/10 p-2 text-sky-800">
-              <Wallet size={20} aria-hidden="true" />
-            </span>
-            <span className="text-2xl font-semibold tracking-tight">Flock</span>
+    <MotionConfig reducedMotion="user">
+      <main className="w-full overflow-x-clip bg-black text-white">
+        {/* nav */}
+        <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/60 backdrop-blur-2xl">
+          <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-5">
+            <span className="text-[17px] font-semibold tracking-tight">Flock</span>
+            <div className="flex items-center gap-5 text-[13px] text-white/70">
+              <a href="#how" className="hidden hover:text-white sm:inline">How it works</a>
+              <a href="#live" className="hidden hover:text-white sm:inline">Live flocks</a>
+              <button type="button" onClick={onStartFlock} className="min-h-[44px] rounded-full px-1 font-semibold text-[#a796ff] hover:text-white">
+                Start a flock
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onStartFlock}
-            className="hidden min-h-11 items-center gap-1.5 rounded-lg border border-sky-200 bg-white px-4 text-sm font-semibold text-sky-800 hover:bg-sky-50 sm:flex"
-          >
-            <Plus size={16} aria-hidden="true" /> Start a flock
-          </button>
-        </header>
+        </nav>
 
-        <section className="grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_20rem] lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">The group buy that gets cheaper every block.</h1>
-            <p className="mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
-              Every Duck who joins lowers the price for every Duck already in, and the difference lands back in your wallet in the same ~300ms Monad
-              block. If the flock doesn&apos;t fill, the seller pays you a bonus for trying.
+        {/* hero */}
+        <section className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 md:pb-24 md:pt-24">
+          <div className="pointer-events-none absolute left-1/2 top-24 h-[620px] w-[820px] max-w-[140vw] -translate-x-1/2 rounded-full bg-[#836EF9] opacity-25 blur-[140px]" aria-hidden="true" />
+          <motion.div {...reveal} className="relative text-center">
+            <p className="text-[17px] font-semibold text-[#a796ff]">Flock</p>
+            <h1 className="mx-auto mt-3 max-w-4xl text-[44px] font-semibold leading-[1.04] tracking-[-0.035em] md:text-[80px] lg:text-[96px]">
+              The group buy that gets cheaper every block.
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-[17px] leading-relaxed text-white/60 md:text-[21px]">
+              Every Duck who joins lowers the price for every Duck already in — and the difference lands back in your wallet in the same ~300ms Monad
+              block. If it doesn&apos;t fill, the seller pays you for trying.
             </p>
-            <button
-              type="button"
-              onClick={onStartFlock}
-              className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-sky-200 px-6 text-base font-semibold text-slate-950 transition hover:bg-sky-300 active:scale-[0.99] sm:w-auto"
-            >
-              <Plus size={18} aria-hidden="true" /> Start a flock
-            </button>
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <PillButton onClick={onStartFlock} className="w-full sm:w-auto">
+                <Plus size={18} strokeWidth={SW} /> Start a flock
+              </PillButton>
+              <a
+                href="#live"
+                className="inline-flex min-h-[56px] w-full items-center justify-center gap-1.5 rounded-[22px] border border-white/15 bg-white/10 px-7 text-[17px] font-semibold tracking-tight hover:bg-white/15 sm:w-auto"
+              >
+                See live flocks <ArrowRight size={18} strokeWidth={SW} />
+              </a>
+            </div>
+          </motion.div>
+
+          {/* 3D phones */}
+          <div className="relative mt-14 flex items-start justify-center md:mt-20">
+            <div className="relative z-10 -mr-10 mt-10 md:-mr-6 md:mt-16">
+              <PhoneFrame width={200} tilt={{ x: 6, y: 18 }} float interactive className="md:hidden">
+                <PassScreen />
+              </PhoneFrame>
+              <PhoneFrame width={300} tilt={{ x: 6, y: 18 }} float interactive className="hidden md:block">
+                <PassScreen />
+              </PhoneFrame>
+            </div>
+            <div className="relative z-20">
+              <PhoneFrame width={200} tilt={{ x: 6, y: -18 }} float delay={1.5} interactive className="md:hidden">
+                <PriceScreen />
+              </PhoneFrame>
+              <PhoneFrame width={320} tilt={{ x: 6, y: -18 }} float delay={1.5} interactive className="hidden md:block">
+                <PriceScreen />
+              </PhoneFrame>
+            </div>
           </div>
-          <ul className={`${card} divide-y divide-slate-200`}>
-            {STEPS.map(({ icon: I, title, body }) => (
-              <li key={title} className="flex gap-3 p-4">
-                <span className="h-fit rounded-lg bg-sky-300/10 p-2 text-sky-800">
-                  <I size={18} aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="mt-0.5 text-sm text-slate-600">{body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
         </section>
 
-        <section aria-labelledby="live-flocks">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 id="live-flocks" className="text-xl font-semibold tracking-tight">Live flocks</h2>
-            <span className="text-sm text-slate-600">{open.length} open</span>
+        {/* how it works */}
+        <section id="how" className="mx-auto max-w-6xl scroll-mt-16 px-5 py-16 md:py-24">
+          <motion.h2 {...reveal} className="text-[40px] font-semibold leading-tight tracking-[-0.03em] md:text-[56px]">
+            How it works.
+          </motion.h2>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {STEPS.map(({ icon: I, title, body }, i) => (
+              <motion.div key={title} {...reveal} transition={{ ...reveal.transition, delay: i * 0.08 }}>
+                <GlassCard className="h-full p-7">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#836EF9]/20 text-[#b5a8ff]">
+                    <I size={24} strokeWidth={SW} />
+                  </span>
+                  <h3 className="mt-6 text-[24px] font-semibold leading-tight tracking-tight">{title}</h3>
+                  <p className="mt-3 text-[17px] leading-relaxed text-white/60">{body}</p>
+                </GlassCard>
+              </motion.div>
+            ))}
           </div>
-          {flocks.length ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...open, ...closed].map((f) => (
+        </section>
+
+        {/* why it works */}
+        <section className="border-y border-white/[0.06] bg-[#0A0A0F]">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+            <motion.p {...reveal} className="text-[17px] font-semibold text-[#a796ff]">
+              Why it works
+            </motion.p>
+            <div className="mt-8 space-y-12 md:space-y-16">
+              {WHY.map((w, i) => (
+                <motion.div key={w.title} {...reveal} transition={{ ...reveal.transition, delay: i * 0.05 }} className="grid gap-3 md:grid-cols-[1.2fr_1fr] md:gap-12">
+                  <h3 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] md:text-[52px]">{w.title}</h3>
+                  <p className="self-end text-[17px] leading-relaxed text-white/60 md:text-[21px]">{w.body}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* live flocks */}
+        <section id="live" className="mx-auto max-w-6xl scroll-mt-16 px-5 py-16 md:py-24">
+          <motion.div {...reveal} className="flex items-end justify-between gap-4">
+            <h2 className="text-[40px] font-semibold leading-tight tracking-[-0.03em] md:text-[56px]">Live flocks.</h2>
+            <span className="pb-2 text-[15px] text-white/50">{flocks.filter((f) => f.status === "open").length} open</span>
+          </motion.div>
+          {ordered.length ? (
+            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {ordered.map((f) => (
                 <FlockCard key={f.id} f={f} />
               ))}
             </div>
           ) : (
-            <div className={`${card} p-6 text-center text-sm text-slate-600`}>Loading live flocks…</div>
+            <GlassCard className="mt-10 p-8 text-center text-[17px] text-white/50">Loading live flocks…</GlassCard>
           )}
         </section>
-      </div>
-    </main>
+
+        {/* use cases */}
+        <section className="mx-auto max-w-6xl px-5 pb-20 md:pb-28">
+          <motion.h2 {...reveal} className="text-[32px] font-semibold tracking-[-0.03em] md:text-[40px]">
+            Anything better together.
+          </motion.h2>
+          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {USES.map(({ icon: I, title, body }) => (
+              <motion.div key={title} {...reveal}>
+                <GlassCard className="h-full p-5">
+                  <I size={26} strokeWidth={SW} className="text-[#b5a8ff]" />
+                  <p className="mt-4 text-[17px] font-semibold tracking-tight">{title}</p>
+                  <p className="mt-1 text-[15px] leading-snug text-white/50">{body}</p>
+                </GlassCard>
+              </motion.div>
+            ))}
+          </div>
+          <div className="mt-14 flex justify-center">
+            <PillButton onClick={onStartFlock}>
+              <CircleDollarSign size={18} strokeWidth={SW} /> Start a flock
+            </PillButton>
+          </div>
+        </section>
+
+        <footer className="border-t border-white/[0.06] px-5 py-8 text-center text-[13px] text-white/40">Built on Monad · Monad Blitz Oregon 2026</footer>
+      </main>
+    </MotionConfig>
   );
 }
