@@ -1,17 +1,25 @@
 "use client";
 import { IS_DEPLOYED } from "@/lib/config";
 
-// Light "bookings" look so the loading state matches the join/create/landing screens.
+// Matches the dark glass design of every screen.
 export function NotReady({ error }: { error: string | null }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] p-6 text-center text-sm text-slate-600">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#0A0A0F] p-6 text-center text-[15px] text-white/60">
       {!IS_DEPLOYED ? (
-        <div>Contracts aren&apos;t deployed yet. UI work → use the <a className="font-semibold text-sky-800 underline" href="/preview">/preview</a> pages.</div>
+        <div>
+          Contracts aren&apos;t deployed yet. UI work → use the{" "}
+          <a className="font-semibold text-[#a796ff] underline" href="/preview">
+            /preview
+          </a>{" "}
+          pages.
+        </div>
       ) : error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">{error}</div>
+        <div role="alert" className="rounded-[22px] border border-[#FF453A]/30 bg-[#FF453A]/10 px-5 py-4 text-[#ff8a82]">
+          {error}
+        </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-200 border-t-sky-700" aria-hidden="true" />
+        <div className="flex items-center gap-2.5">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/15 border-t-[#836EF9] motion-reduce:animate-none" aria-hidden="true" />
           Loading flock from Monad…
         </div>
       )}

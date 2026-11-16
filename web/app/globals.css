@@ -19,3 +19,9 @@ body {
 }
 
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* Apple-style canvas: dark UI chrome, smooth in-page anchors (off for reduced motion). */
+html { color-scheme: dark; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
