@@ -12,6 +12,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { PhoneFrame } from "@/components/ui/PhoneFrame";
 import { PillButton } from "@/components/ui/PillButton";
 import { ProgressRail } from "@/components/ui/ProgressRail";
+import { ShareQRButton } from "@/components/ui/ShareQR";
 
 const SW = 1.75;
 const reveal = {
@@ -131,9 +132,12 @@ function FlockCard({ f }: { f: FlockState }) {
         </div>
         <p className="mt-2 text-[15px] text-white/30 line-through">alone {fmtUsd(f.soloPrice)}</p>
         <ProgressRail className="mt-5" n={f.n} max={f.maxBuyers} min={f.minBuyers} />
-        <span className="mt-5 inline-flex items-center gap-1 text-[15px] font-semibold text-[#a796ff]">
-          View flock <ArrowRight size={16} strokeWidth={SW} className="transition-transform group-hover:translate-x-0.5" />
-        </span>
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1 text-[15px] font-semibold text-[#a796ff]">
+            View flock <ArrowRight size={16} strokeWidth={SW} className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+          {f.status === "open" && <ShareQRButton id={f.id} title={cleanTitle(f.title)} label="QR" />}
+        </div>
       </GlassCard>
     </Link>
   );

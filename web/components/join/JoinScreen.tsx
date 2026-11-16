@@ -14,6 +14,7 @@ import { ProgressRail } from "@/components/ui/ProgressRail";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Countdown, useNow } from "@/components/ui/Countdown";
 import { Toast } from "@/components/ui/Toast";
+import { ShareQRButton } from "@/components/ui/ShareQR";
 
 const SW = 1.75;
 
@@ -88,6 +89,7 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
               <Clock3 size={14} strokeWidth={SW} aria-hidden="true" />
               <Countdown deadline={flock.deadline} endedLabel="Closed" />
             </span>
+            <ShareQRButton id={flock.id} title={title} />
             {loggedIn && onLogout && (
               <button type="button" onClick={onLogout} aria-label="Sign out" className="flex h-11 w-11 items-center justify-center rounded-full text-white/50 hover:text-white">
                 <LogOut size={18} strokeWidth={SW} />
