@@ -1,535 +1,49 @@
 "use client";
-// OWNER: Teammate B (Phone & Create). The screen every audience member sees after scanning the QR.
+// OWNER: Teammate B (Phone & Create). Phone join screen.
 // Keep the props interface (JoinScreenProps) exactly the same.
-// Visual language matches Teammate A's "Your bookings" page (components/receipt/BuyerProfile + TripCard).
-import { useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowUpRight,
-  Bus,
-  CalendarDays,
-  ChevronDown,
-  CircleCheck,
-  CircleDollarSign,
-  Clock3,
-  History,
-  House,
-  Loader2,
-  Mountain,
-  Shirt,
-  TrainFront,
-  TriangleAlert,
-  Users,
-  Utensils,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import type { FlockState, JoinScreenProps } from "@/lib/types";
+// Design: iOS native app feel — large title, Wallet-style pass, sticky glass CTA bar.
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { AlertTriangle, CheckCircle2, Clock3, LogOut, ShieldCheck, Sparkles, TrendingDown, Users, XCircle } from "lucide-react";
+import type { JoinScreenProps } from "@/lib/types";
 import { fmtUsd } from "@/lib/flock-math";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { PillButton } from "@/components/ui/PillButton";
+import { StatRow } from "@/components/ui/StatRow";
+import { ProgressRail } from "@/components/ui/ProgressRail";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Countdown, useNow } from "@/components/ui/Countdown";
+import { Toast } from "@/components/ui/Toast";
 
-/* ───────────────────────── helpers ───────────────────────── */
+const SW = 1.75;
 
-const card = "rounded-xl border border-slate-200 bg-white/90 shadow-sm";
-const dateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
-
-/** Ticks once per second on the client only (avoids SSR hydration mismatch). */
-function useNow(): number | null {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
-
-/** Animates a number from its previous value to `value`. */
-function useCountUp(value: number, durationMs = 700): number {
-  const [display, setDisplay] = useState(value);
-  const fromRef = useRef(value);
-  useEffect(() => {
-    const from = fromRef.current;
-    if (from === value) return;
-    let raf = 0;
-    const start = performance.now();
-    const step = (t: number) => {
-      const p = Math.min(1, (t - start) / durationMs);
-      const v = from + (value - from) * (1 - Math.pow(1 - p, 3));
-      fromRef.current = v;
-      setDisplay(v);
-      if (p < 1) raf = requestAnimationFrame(step);
-      else fromRef.current = value;
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [value, durationMs]);
-  return display;
-}
-
-function fmtDate(ms: number, now: number | null): string {
-  return now === null ? "—" : dateFormat.format(ms);
-}
-
-function remaining(ms: number): string {
-  const minutes = Math.max(0, Math.ceil(ms / 60_000));
-  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m left` : `${minutes} min left`;
-}
-
-function ago(at: number, now: number | null): string {
-  if (now === null) return "";
-  const s = Math.max(0, Math.round((now - at) / 1000));
-  if (s < 60) return "Just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
-}
-
-/** Picks a line icon from the flock title, like the bookings list does. */
-function iconFor(title: string): LucideIcon {
-  const t = title.toLowerCase();
-  if (/van|bus|shuttle|ride|pdx/.test(t)) return t.includes("ski") ? Mountain : Bus;
-  if (/cabin|house|lodge|stay|airbnb/.test(t)) return House;
-  if (/hoodie|shirt|merch|tee/.test(t)) return Shirt;
-  if (/taco|dinner|food|lunch|pizza|meal/.test(t)) return Utensils;
-  if (/train|rail/.test(t)) return TrainFront;
-  if (/ski|hood|hike|mountain/.test(t)) return Mountain;
-  return Users;
-}
-
-/** Strips trailing emoji from titles so the formal layout stays text-only. */
 function cleanTitle(title: string): string {
   return title.replace(/[\p{Extended_Pictographic}‍️]/gu, "").replace(/\s{2,}/g, " ").trim();
 }
 
-type Category = "current" | "upcoming" | "past";
-const CATEGORIES = [
-  { id: "current", label: "Current", icon: Clock3, hint: "Still filling or awaiting settlement" },
-  { id: "upcoming", label: "Upcoming", icon: CalendarDays, hint: "Paid and confirmed. Trip ahead." },
-  { id: "past", label: "Past", icon: History, hint: "Finished or canceled bookings" },
-] as const;
-
-function categoryOf(f: FlockState, now: number): Category {
-  if (f.status === "success") return "upcoming";
-  if (f.status === "failed" || (now >= f.deadline && f.n < f.minBuyers)) return "past";
-  return "current";
-}
-
-/** Loads the public flock list so the phone can show Current / Upcoming / Past like the bookings page. */
-function useFlockList(): FlockState[] | null {
-  const [list, setList] = useState<FlockState[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      fetch("/api/flocks")
-        .then((r) => (r.ok ? r.json() : { flocks: [] }))
-        .then((d: { flocks?: FlockState[] }) => alive && setList(Array.isArray(d.flocks) ? d.flocks : []))
-        .catch(() => alive && setList([]));
-    load();
-    const t = setInterval(load, 20_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, []);
-  return list;
-}
-
-/* ───────────────────────── sidebar ───────────────────────── */
-
-function MoneyCard({
-  flock,
-  me,
-  loggedIn,
-  busy,
-  canJoin,
-  onLogin,
-  onJoin,
-}: Pick<JoinScreenProps, "flock" | "me" | "loggedIn" | "busy" | "onLogin" | "onJoin"> & { canJoin: boolean }) {
-  const returned = useCountUp(Math.max(0, me.rebatesSoFar));
-  const joined = me.joined;
+/** iOS alert-style status card. */
+function Alert({ tone, icon, title, body }: { tone: "mint" | "yellow" | "red" | "neutral"; icon: React.ReactNode; title: string; body?: React.ReactNode }) {
+  const color = { mint: "text-[#30D158]", yellow: "text-[#FFD60A]", red: "text-[#FF453A]", neutral: "text-white/70" }[tone];
   return (
-    <section aria-label="Money overview" className={`${card} p-4`}>
-      <div className="flex items-center gap-2 text-sm text-slate-700">
-        <CircleDollarSign size={16} aria-hidden="true" /> {joined ? "Your price" : "You owe"}
-      </div>
-      <motion.p
-        key={joined ? flock.price : flock.nextPrice}
-        initial={{ color: "#065f46" }}
-        animate={{ color: "#020617" }}
-        transition={{ duration: 0.8 }}
-        className="mt-1 text-3xl font-semibold tabular-nums"
-      >
-        {fmtUsd(joined ? flock.price : flock.nextPrice)}
-      </motion.p>
-
-      {!joined && (
-        <>
-          <p className="mt-3 flex items-center justify-between gap-2 text-sm text-amber-800">
-            <span className="min-w-0 truncate">{cleanTitle(flock.title)}</span>
-            <span className="ml-auto whitespace-nowrap tabular-nums">{fmtUsd(flock.nextPrice)}</span>
-            <ArrowUpRight size={15} className="shrink-0" aria-hidden="true" />
-          </p>
-          {flock.status === "open" && (
-            <>
-              <button
-                type="button"
-                onClick={loggedIn ? onJoin : onLogin}
-                disabled={busy || (loggedIn && !canJoin)}
-                aria-busy={busy}
-                className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-sky-200 px-4 text-base font-semibold text-slate-950 transition hover:bg-sky-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-                    Confirming payment…
-                  </>
-                ) : !loggedIn ? (
-                  "Sign in with email to join"
-                ) : canJoin ? (
-                  `Join for ${fmtUsd(flock.nextPrice)}`
-                ) : (
-                  "Joining is closed"
-                )}
-              </button>
-              <p className="mt-2 text-center text-xs text-slate-600">
-                {loggedIn ? "Settles in about one second on Monad." : "No wallet or gas fees required."}
-              </p>
-            </>
-          )}
-        </>
-      )}
-
-      <dl className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-sm">
-        {joined ? (
-          <>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-600">Paid at join</dt>
-              <dd className="tabular-nums">{fmtUsd(me.paidAtJoin ?? 0)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-600">Money returned</dt>
-              <dd className="tabular-nums text-emerald-800">{fmtUsd(returned)}</dd>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-600">Price alone</dt>
-              <dd className="tabular-nums text-slate-500 line-through">{fmtUsd(flock.soloPrice)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-600">You save</dt>
-              <dd className="tabular-nums text-emerald-800">{fmtUsd(Math.max(0, flock.soloPrice - flock.nextPrice))}</dd>
-            </div>
-          </>
-        )}
-        {loggedIn && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-slate-600">Test wallet</dt>
-            <dd className="tabular-nums">{fmtUsd(me.balance)}</dd>
-          </div>
-        )}
-      </dl>
-    </section>
+    <GlassCard strong className="px-5 py-5 text-center" role={tone === "red" ? "alert" : "status"}>
+      <div className={`mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.08] ${color}`}>{icon}</div>
+      <p className="mt-3 text-[17px] font-semibold tracking-tight">{title}</p>
+      {body && <p className="mt-1 text-[15px] leading-snug text-white/60 [overflow-wrap:anywhere]">{body}</p>}
+    </GlassCard>
   );
 }
-
-function FlockNav({ flock, now }: Pick<JoinScreenProps, "flock"> & { now: number | null }) {
-  const fetched = useFlockList();
-  const t = now ?? flock.deadline - 1;
-  const all = [flock, ...(fetched ?? []).filter((f) => f.id !== flock.id)];
-  const [category, setCategory] = useState<Category>(() => categoryOf(flock, Date.now()));
-  const visible = all.filter((f) => categoryOf(f, t) === category);
-  const hint = CATEGORIES.find((c) => c.id === category)?.hint;
-
-  return (
-    <nav aria-label="Choose flock" className="space-y-3">
-      <div role="group" aria-label="Flock category" className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/70 p-1">
-        {CATEGORIES.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={category === id}
-            onClick={() => setCategory(id)}
-            className="flex min-h-10 items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold text-slate-700 hover:bg-white/70 aria-pressed:bg-white aria-pressed:text-slate-950 aria-pressed:shadow-sm"
-          >
-            <Icon size={12} className="shrink-0" aria-hidden="true" />
-            {label}
-          </button>
-        ))}
-      </div>
-      <p className="px-1 text-xs text-slate-600">{hint}</p>
-      <ul className="space-y-1">
-        {visible.map((f) => {
-          const Icon = iconFor(f.title);
-          const here = f.id === flock.id;
-          return (
-            <li key={f.id}>
-              <a
-                href={`/f/${f.id}`}
-                aria-current={here ? "page" : undefined}
-                onClick={here ? (e) => e.preventDefault() : undefined}
-                className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-white/70 aria-[current=page]:border-sky-200/60 aria-[current=page]:bg-sky-300/10 aria-[current=page]:text-slate-950"
-              >
-                <Icon size={17} className="shrink-0 text-sky-800" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{cleanTitle(f.title)}</span>
-              </a>
-            </li>
-          );
-        })}
-        {visible.length === 0 && (
-          <li className="px-3 py-2.5 text-sm text-slate-600">{fetched === null ? "Loading…" : "No flocks in this category."}</li>
-        )}
-      </ul>
-    </nav>
-  );
-}
-
-/* ───────────────────────── trip card ───────────────────────── */
-
-function PriceCurve({ flock }: Pick<JoinScreenProps, "flock">) {
-  const gradient = useId();
-  const data = flock.curve.map((p) => ({ ...p, reached: p.n <= flock.n ? p.price : null }));
-  return (
-    <div className="mt-2 h-40 min-w-0 rounded-xl bg-slate-50 py-1">
-      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 160 }}>
-        <ComposedChart data={data} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#18826a" stopOpacity={0.42} />
-              <stop offset="100%" stopColor="#18826a" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} stroke="#d7e2ec" strokeDasharray="3 6" />
-          <XAxis
-            dataKey="n"
-            type="number"
-            domain={[1, Math.max(2, flock.maxBuyers)]}
-            allowDecimals={false}
-            tickCount={5}
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: "#52647a", fontSize: 12 }}
-          />
-          <YAxis tickFormatter={(v) => `$${v}`} width={42} tickCount={4} axisLine={false} tickLine={false} tick={{ fill: "#52647a", fontSize: 12 }} />
-          <Area type="monotone" dataKey="reached" fill={`url(#${gradient})`} stroke="none" isAnimationActive={false} />
-          <Line type="monotone" dataKey="price" stroke="#5c83bb" strokeDasharray="5 6" strokeWidth={2} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="reached" stroke="#18826a" strokeWidth={3} dot={false} isAnimationActive={false} />
-          {flock.n > 0 && (
-            <ReferenceDot x={flock.n} y={flock.price} r={5} fill="#18826a" stroke="#eafff9" style={{ filter: "drop-shadow(0 0 5px #18826a)" }} />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function AgendaRow({ title, tag, sub, amount, tone }: { title: string; tag: string; sub: string; amount?: string; tone?: "money" }) {
-  return (
-    <li className="flex items-start justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="text-sm">
-          <span className="font-semibold">{title}</span> <span className="ml-1 text-xs text-slate-600">{tag}</span>
-        </p>
-        <p className="mt-0.5 text-xs text-slate-600">{sub}</p>
-      </div>
-      {amount && <span className={`shrink-0 text-sm tabular-nums ${tone === "money" ? "font-semibold text-emerald-800" : "text-slate-900"}`}>{amount}</span>}
-    </li>
-  );
-}
-
-function TripCard({ flock, me, error, now }: Pick<JoinScreenProps, "flock" | "me" | "error"> & { now: number | null }) {
-  const Icon = iconFor(flock.title);
-  const t = now ?? flock.deadline - 1;
-  const needed = Math.max(0, flock.minBuyers - flock.n);
-  const spotsLeft = Math.max(0, flock.maxBuyers - flock.n);
-  const open = flock.status === "open" && t < flock.deadline && flock.n < flock.maxBuyers;
-  const canceled = flock.status === "failed" || (t >= flock.deadline && needed > 0);
-  const confirmed = flock.status === "success";
-  const status = canceled
-    ? "Canceled"
-    : confirmed
-      ? "Confirmed"
-      : !open
-        ? "Awaiting settlement"
-        : needed
-          ? "Still filling"
-          : "Minimum reached";
-  const mine = flock.buyers?.find((b) => me.address && b.address?.toLowerCase() === me.address.toLowerCase());
-  const paidOutcome = flock.status === "failed" ? "Refund sent" : canceled ? "Refund pending" : confirmed ? "Paid to organizer" : "Held until settlement";
-  const feed = flock.feed ?? [];
-
-  return (
-    <article className={`overflow-hidden ${card}`}>
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-5">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-semibold">
-            <Icon size={20} className="shrink-0 text-sky-800" aria-hidden="true" />
-            <span className="min-w-0 [overflow-wrap:anywhere]">{cleanTitle(flock.title)}</span>
-          </h2>
-          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-600">
-            <Clock3 size={14} aria-hidden="true" />
-            <span>Payment deadline</span>
-            <time dateTime={new Date(flock.deadline).toISOString()}>{fmtDate(flock.deadline, now)}</time>
-            {open && now !== null && <span className="ml-2 text-amber-800">· {remaining(flock.deadline - now)}</span>}
-          </p>
-        </div>
-        <span
-          className={`rounded-full border px-3 py-1 text-sm font-semibold ${
-            canceled ? "border-rose-200 bg-rose-50 text-rose-800" : "border-sky-200 bg-sky-50 text-sky-900"
-          }`}
-        >
-          {status}
-        </span>
-      </header>
-
-      {error && (
-        <section role="alert" className="flex items-start gap-2 border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <span className="[overflow-wrap:anywhere]">{error}</span>
-        </section>
-      )}
-
-      {me.joined && (
-        <section aria-label="Your payment status" className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3">
-          <div>
-            <p className="text-sm font-semibold">{paidOutcome}</p>
-            <p className="text-xs text-slate-600">
-              {canceled ? "Includes the missed-minimum bonus" : confirmed ? "Final price locked in" : `Spot #${me.myIndex ?? "—"} · released or refunded at settlement`}
-            </p>
-          </div>
-          <strong className="tabular-nums text-emerald-800">{fmtUsd(flock.price + (canceled ? flock.bonusPerBuyer : 0))}</strong>
-        </section>
-      )}
-
-      <div className="grid gap-5 p-5">
-        <section aria-label={`Price curve for ${flock.title}`} className="min-w-0">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-3xl font-bold tabular-nums text-emerald-800">{fmtUsd(flock.n ? flock.price : flock.soloPrice)}</p>
-            <p className="text-sm text-slate-600">{canceled ? "Price before cancellation" : "Price per person"}</p>
-          </div>
-          <PriceCurve flock={flock} />
-          <p className="mt-2 text-sm text-slate-600">Price by number of paid spots</p>
-          <p className="mt-4 text-sm font-medium">
-            {flock.n}/{flock.maxBuyers} paid
-            {open && (
-              <>
-                {" "}
-                · {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
-                {needed > 0 && (
-                  <span className="text-amber-800">
-                    {" "}
-                    · {needed} more {needed === 1 ? "payment" : "payments"} to confirm
-                  </span>
-                )}
-              </>
-            )}
-          </p>
-          {open && needed > 0 && me.joined && (
-            <p className="mt-1 text-sm text-emerald-800">{fmtUsd(flock.price + flock.bonusPerBuyer)} back to you if canceled, including the bonus.</p>
-          )}
-          {canceled ? (
-            <p className="mt-1 text-sm text-rose-800">
-              Missed the {flock.minBuyers}-person minimum. {flock.status === "failed" ? "Paid guests were refunded with a bonus." : "Refunds are pending settlement."}
-            </p>
-          ) : (
-            open && (
-              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-slate-600">
-                <Clock3 size={14} aria-hidden="true" />
-                Cancels if fewer than {flock.minBuyers} people pay by the deadline. Refund plus {fmtUsd(flock.bonusPerBuyer)} bonus.
-              </p>
-            )
-          )}
-          {flock.status !== "open" && (
-            <a
-              href={`/receipt/${flock.id}`}
-              className="mt-4 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-white text-sm font-semibold text-sky-800 hover:bg-sky-50"
-            >
-              View receipt <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
-          )}
-        </section>
-
-        <section aria-label="Trip agenda" className="min-w-0 border-t border-slate-200 pt-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <CalendarDays size={16} className="text-slate-700" aria-hidden="true" /> Trip agenda
-          </h3>
-          <ul className="mt-1 divide-y divide-slate-200">
-            <AgendaRow title="Group funding deadline" tag={open ? "Open" : "Closed"} sub={fmtDate(flock.deadline, now)} />
-            {me.joined && (
-              <AgendaRow
-                title="Your join payment"
-                tag="Paid"
-                sub={`${mine ? fmtDate(mine.joinedAt, now) : "Confirmed"} · Spot #${me.myIndex ?? "—"}`}
-                amount={fmtUsd(me.paidAtJoin ?? 0)}
-              />
-            )}
-            {me.joined && me.rebatesSoFar > 0 && (
-              <AgendaRow title="Price-drop rebates" tag="Received" sub="Sent back as later guests joined" amount={`+${fmtUsd(me.rebatesSoFar)}`} tone="money" />
-            )}
-            <AgendaRow
-              title="Settlement"
-              tag={flock.status === "open" ? "Scheduled" : "Complete"}
-              sub={
-                confirmed
-                  ? "Funds released to the organizer"
-                  : canceled
-                    ? "Every guest refunded plus bonus"
-                    : `Released at ${flock.minBuyers}+ guests, otherwise refunded plus bonus`
-              }
-            />
-          </ul>
-        </section>
-
-        <details className="group min-w-0 border-t border-slate-200 pt-4">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-            <span>
-              Activity <span className="ml-1 font-normal text-slate-600 tabular-nums">{feed.length}</span>
-            </span>
-            <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" />
-          </summary>
-          {feed.length ? (
-            <ul className="mt-2 max-h-64 divide-y divide-slate-200 overflow-y-auto">
-              {feed.slice(0, 12).map((e) => (
-                <li key={e.id} className="flex items-start justify-between gap-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="[overflow-wrap:anywhere]">{cleanTitle(e.text)}</p>
-                    <p className="text-xs text-slate-600">{ago(e.at, now)}</p>
-                  </div>
-                  {(e.rebatePerBuyer ?? 0) > 0 && <span className="shrink-0 tabular-nums text-emerald-800">+{fmtUsd(e.rebatePerBuyer ?? 0)}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-slate-600">No activity yet.</p>
-          )}
-        </details>
-
-        <details className="group min-w-0 border-t border-slate-200 pt-4">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-            How pricing works
-            <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" />
-          </summary>
-          <ul className="mt-2 space-y-2 text-sm text-slate-600">
-            <li>The price per person is the setup cost divided by the number of paid guests, plus any per-item cost.</li>
-            <li>Each new guest lowers the price, and earlier guests receive the difference back immediately.</li>
-            <li>If the minimum is not reached by the deadline, every guest is refunded in full plus a bonus paid by the organizer.</li>
-          </ul>
-        </details>
-      </div>
-    </article>
-  );
-}
-
-/* ───────────────────────── main ───────────────────────── */
 
 export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebateToast, onLogin, onJoin, onLogout }: JoinScreenProps) {
+  const reduced = useReducedMotion();
   const now = useNow();
-  const canJoin = flock.status === "open" && flock.n < flock.maxBuyers && (now === null || now < flock.deadline);
+  const expired = now !== null && now >= flock.deadline;
+  const full = flock.n >= flock.maxBuyers;
+  const open = flock.status === "open" && !expired && !full;
+  const canJoin = open && !me.joined;
+  const needed = Math.max(0, flock.minBuyers - flock.n);
+  const title = cleanTitle(flock.title);
 
-  // Toast: show whenever lastRebateToast changes to a new non-null value, auto-hide after 2.5s.
+  // iOS notification banner for rebates (auto-hide after 2.5s, haptic tick).
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (!lastRebateToast) {
@@ -538,7 +52,6 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
     }
     setToast(lastRebateToast);
     try {
-      // Chrome blocks (and logs a console error for) vibrate before the user has tapped the page.
       const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
       if (!ua || ua.hasBeenActive) navigator.vibrate?.(60);
     } catch {
@@ -548,51 +61,222 @@ export default function JoinScreen({ flock, me, loggedIn, busy, error, lastRebat
     return () => clearTimeout(t);
   }, [lastRebateToast]);
 
-  return (
-    <main className="min-h-[100dvh] w-full overflow-x-clip bg-[#f4f7fb] bg-[radial-gradient(ellipse_at_top_left,#e2efff,transparent_55%)] px-4 pt-[max(1.75rem,env(safe-area-inset-top))] pb-[calc(1.75rem+env(safe-area-inset-bottom))] text-slate-950 sm:px-8">
-      <div className="mx-auto max-w-md space-y-6 md:max-w-6xl">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-5">
-          <div className="flex items-center gap-3">
-            <span className="rounded-lg bg-sky-300/10 p-2 text-sky-800">
-              <Wallet size={20} aria-hidden="true" />
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight">Join a flock</h1>
-          </div>
-          {loggedIn && onLogout && (
-            <button type="button" onClick={onLogout} className="min-h-11 text-sm text-slate-600 underline-offset-4 hover:text-slate-950 hover:underline">
-              Sign out
-            </button>
-          )}
-        </header>
+  // Shimmer the pass when rebates grow.
+  const prevRebate = useRef(me.rebatesSoFar);
+  const [shine, setShine] = useState(0);
+  useEffect(() => {
+    if (me.rebatesSoFar > prevRebate.current + 0.0001) setShine((s) => s + 1);
+    prevRebate.current = me.rebatesSoFar;
+  }, [me.rebatesSoFar]);
 
-        <div className="grid items-start gap-6 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <aside className="space-y-5 md:sticky md:top-6">
-            <MoneyCard flock={flock} me={me} loggedIn={loggedIn} busy={busy} canJoin={canJoin} onLogin={onLogin} onJoin={onJoin} />
-            <FlockNav flock={flock} now={now} />
-          </aside>
-          <section aria-label="Flock details" className="min-w-0">
-            <TripCard flock={flock} me={me} error={error} now={now} />
-          </section>
+  const shownPrice = flock.n ? flock.price : flock.soloPrice;
+
+  return (
+    <MotionConfig reducedMotion="user">
+    <main className="relative min-h-[100dvh] w-full overflow-x-clip bg-[#0A0A0F] text-white">
+      <Toast message={toast} icon={<TrendingDown size={18} strokeWidth={SW} />} title="Flock · money back" />
+
+      {/* ambient glow */}
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-[#836EF9] opacity-25 blur-[120px]" aria-hidden="true" />
+
+      <div className="relative mx-auto max-w-md px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[calc(9rem+env(safe-area-inset-bottom))]">
+        {/* nav bar */}
+        <div className="flex min-h-[44px] items-center justify-between">
+          <span className="text-[13px] font-semibold uppercase tracking-[0.18em] text-[#836EF9]">Flock</span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[13px] text-white/80 backdrop-blur-xl">
+              <Clock3 size={14} strokeWidth={SW} aria-hidden="true" />
+              <Countdown deadline={flock.deadline} endedLabel="Closed" />
+            </span>
+            {loggedIn && onLogout && (
+              <button type="button" onClick={onLogout} aria-label="Sign out" className="flex h-11 w-11 items-center justify-center rounded-full text-white/50 hover:text-white">
+                <LogOut size={18} strokeWidth={SW} />
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* large title */}
+        <h1 className="mt-2 text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] [overflow-wrap:anywhere]">{title}</h1>
+
+        {/* hero image */}
+        <div className="relative mt-5 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1b1730] via-[#121218] to-[#0c0c10] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(131,110,249,0.35),transparent_60%)]" aria-hidden="true" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={flock.imageUrl || "/img/van.svg"} alt="" className="relative mx-auto h-40 w-auto object-contain p-6" />
+        </div>
+
+        {/* price */}
+        <section className="mt-7" aria-label="Price">
+          <p className="text-[15px] text-white/50">{me.joined ? "Everyone pays now" : open ? "You'd pay" : "Price per person"}</p>
+          <div className="mt-1 text-[64px] font-semibold leading-none tracking-[-0.04em]">
+            <AnimatedNumber value={me.joined || !open ? shownPrice : flock.nextPrice} />
+          </div>
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[15px]">
+            <span className="text-white/30 line-through decoration-white/30">alone {fmtUsd(flock.soloPrice)}</span>
+            {flock.prevPrice !== null && flock.prevPrice > flock.price && (
+              <span className="text-white/50">
+                was <span className="tabular-nums">{fmtUsd(flock.prevPrice)}</span>
+              </span>
+            )}
+          </div>
+          <p className="mt-2 flex items-center gap-1.5 text-[15px] text-[#30D158]">
+            <TrendingDown size={16} strokeWidth={SW} aria-hidden="true" />
+            Drops every time someone joins
+            {open && <span className="text-white/40">· now {fmtUsd(shownPrice)}</span>}
+          </p>
+        </section>
+
+        {/* progress */}
+        <GlassCard className="mt-6 px-5 py-5">
+          <ProgressRail n={flock.n} max={flock.maxBuyers} min={flock.minBuyers} />
+          <p className="mt-3 flex items-center gap-1.5 text-[15px] text-white/70">
+            <Users size={16} strokeWidth={SW} aria-hidden="true" />
+            {flock.status !== "open" ? "Settled" : needed ? `${needed} more to take off` : full ? "Flock is full" : "Minimum reached — it's flying"}
+          </p>
+        </GlassCard>
+
+        {/* status / error alerts */}
+        <div className="mt-4 space-y-4">
+          {error && <Alert tone="red" icon={<AlertTriangle size={22} strokeWidth={SW} />} title="Couldn't join" body={error} />}
+          {flock.status === "success" && (
+            <Alert tone="mint" icon={<CheckCircle2 size={22} strokeWidth={SW} />} title="The flock flew." body={`Final price ${fmtUsd(flock.price)} per person.`} />
+          )}
+          {flock.status === "failed" && (
+            <Alert
+              tone="yellow"
+              icon={<XCircle size={22} strokeWidth={SW} />}
+              title="Didn't fill — everyone refunded"
+              body={`Full refund plus a ${fmtUsd(flock.bonusPerBuyer)} bonus for trying.`}
+            />
+          )}
+          {flock.status === "open" && expired && (
+            <Alert tone="neutral" icon={<Clock3 size={22} strokeWidth={SW} />} title="Deadline passed" body="Awaiting settlement on Monad." />
+          )}
+          {flock.status === "open" && !expired && full && !me.joined && (
+            <Alert tone="neutral" icon={<Users size={22} strokeWidth={SW} />} title="This flock is full" body="Every spot has been taken." />
+          )}
+        </div>
+
+        {/* Wallet-style pass */}
+        <AnimatePresence>
+          {me.joined && (
+            <motion.section
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="relative mt-6 overflow-hidden rounded-[28px] border border-white/15 bg-[linear-gradient(135deg,#6d5ae6_0%,#836EF9_45%,#4b3bb8_100%)] p-6 shadow-[0_30px_60px_-20px_rgba(131,110,249,0.6),inset_0_1px_0_rgba(255,255,255,0.25)]"
+              aria-label="Your pass"
+            >
+              {!reduced && shine > 0 && (
+                <motion.div
+                  key={shine}
+                  className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                  initial={{ x: "0%" }}
+                  animate={{ x: "400%" }}
+                  transition={{ duration: 1.1, ease: "easeOut" }}
+                  aria-hidden="true"
+                />
+              )}
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-white/70">Flock pass</p>
+                  <p className="mt-1 text-[28px] font-semibold tracking-tight">Duck #{me.myIndex ?? "—"}</p>
+                </div>
+                <span className="rounded-full bg-white/20 px-3 py-1 text-[13px] font-semibold backdrop-blur">{title.length > 18 ? `${title.slice(0, 18)}…` : title}</span>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[13px] text-white/70">You paid</p>
+                  <p className="text-[20px] font-semibold tabular-nums tracking-tight">{me.paidAtJoin !== null ? fmtUsd(me.paidAtJoin) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[13px] text-white/70">Now everyone pays</p>
+                  <p className="text-[20px] font-semibold tabular-nums tracking-tight">{fmtUsd(flock.price)}</p>
+                </div>
+              </div>
+              <div className="mt-5 border-t border-dashed border-white/30 pt-4">
+                <p className="text-[13px] text-white/80">Rebates so far</p>
+                <p className="text-[34px] font-semibold leading-tight tracking-tight text-[#b9ffcb]">
+                  +<AnimatedNumber value={me.rebatesSoFar} />
+                </p>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* guarantee */}
+        <GlassCard className="mt-6 flex gap-4 px-5 py-5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#30D158]/15 text-[#30D158]">
+            <ShieldCheck size={22} strokeWidth={SW} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-[17px] font-semibold tracking-tight">You can&apos;t lose</p>
+            <p className="mt-1 text-[15px] leading-snug text-white/60">
+              If fewer than {flock.minBuyers} people join by the deadline, you get a full refund plus a{" "}
+              <span className="font-semibold text-[#FFD60A]">{fmtUsd(flock.bonusPerBuyer)} bonus</span>.
+            </p>
+          </div>
+        </GlassCard>
+
+        {/* stats */}
+        <GlassCard className="mt-4 px-5 py-1">
+          <StatRow label="Next person pays" value={fmtUsd(flock.nextPrice)} />
+          <StatRow label="Paid back to everyone" value={`+${fmtUsd(flock.totalRebated)}`} tone="mint" />
+          {loggedIn && <StatRow label="Your balance" value={fmtUsd(me.balance)} />}
+        </GlassCard>
+
+        {/* activity */}
+        {flock.feed.length > 0 && (
+          <section className="mt-8" aria-label="Activity">
+            <h2 className="text-[22px] font-semibold tracking-tight">Activity</h2>
+            <GlassCard className="mt-3 px-5 py-1">
+              <ul>
+                <AnimatePresence initial={false}>
+                  {flock.feed.slice(0, 8).map((e) => (
+                    <motion.li
+                      key={e.id}
+                      layout
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex min-h-[44px] items-start gap-3 border-b border-white/[0.08] py-3 last:border-b-0"
+                    >
+                      <Sparkles size={16} strokeWidth={SW} className="mt-0.5 shrink-0 text-[#836EF9]" aria-hidden="true" />
+                      <span className="text-[15px] leading-snug text-white/80 [overflow-wrap:anywhere]">{e.text}</span>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </GlassCard>
+          </section>
+        )}
       </div>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key={toast}
-            role="status"
-            aria-live="polite"
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg"
-          >
-            <CircleCheck size={18} className="shrink-0 text-emerald-700" aria-hidden="true" />
-            <span className="min-w-0 [overflow-wrap:anywhere]">{cleanTitle(toast)}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* sticky CTA bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0A0A0F]/70 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-2xl">
+        <div className="mx-auto max-w-md">
+          {me.joined ? (
+            <div className="flex min-h-[56px] items-center justify-center gap-2 rounded-[22px] bg-white/[0.06] text-[17px] font-semibold">
+              <CheckCircle2 size={20} strokeWidth={SW} className="text-[#30D158]" aria-hidden="true" />
+              You&apos;re in · Duck #{me.myIndex}
+            </div>
+          ) : !canJoin ? (
+            <PillButton variant="secondary" disabled className="w-full">
+              {flock.status === "success" ? "The flock flew" : flock.status === "failed" ? "Refunded + bonus" : full ? "Flock is full" : "Joining closed"}
+            </PillButton>
+          ) : !loggedIn ? (
+            <PillButton onClick={onLogin} className="w-full">
+              Sign in with email to join
+            </PillButton>
+          ) : (
+            <PillButton onClick={onJoin} loading={busy} loadingLabel="Joining… ~1s on Monad" className="w-full">
+              Join at {fmtUsd(flock.nextPrice)}
+            </PillButton>
+          )}
+          <p className="mt-2 text-center text-[12px] text-white/40">Email login · no wallet · no gas</p>
+        </div>
+      </div>
     </main>
+    </MotionConfig>
   );
 }
