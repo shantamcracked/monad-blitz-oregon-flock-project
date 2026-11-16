@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const { id } = await req.json();
-    const isAdmin = !!process.env.ADMIN_SECRET && req.headers.get("x-admin-secret") === process.env.ADMIN_SECRET;
+    // No ADMIN_SECRET configured → open (hackathon mode); otherwise the header must match.
+    const isAdmin = !process.env.ADMIN_SECRET || req.headers.get("x-admin-secret") === process.env.ADMIN_SECRET;
     if (isAdmin) {
       const w = adminWallet();
       const { request } = await publicClient.simulateContract({ account: w.account, address: FLOCK_ADDRESS, abi: FlockAbi, functionName: "settle", args: [BigInt(id)] });

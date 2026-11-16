@@ -10,7 +10,8 @@ export const maxDuration = 60;
 //   POST { action: "bot-join", id }  → a fresh simulated buyer gets test dollars and joins flock `id` (real on-chain joinFor)
 //   POST { action: "fail-create" }   → creates a short-fuse flock (deadline ~30s) that is meant to miss its minimum
 export async function POST(req: Request) {
-  if (!process.env.ADMIN_SECRET || req.headers.get("x-admin-secret") !== process.env.ADMIN_SECRET)
+  // No ADMIN_SECRET configured → demo controls are open (hackathon mode). Set one to lock them.
+  if (process.env.ADMIN_SECRET && req.headers.get("x-admin-secret") !== process.env.ADMIN_SECRET)
     return NextResponse.json({ error: "Admin secret missing or wrong (add ?admin=SECRET to the board URL)" }, { status: 401 });
   try {
     const body = await req.json();
