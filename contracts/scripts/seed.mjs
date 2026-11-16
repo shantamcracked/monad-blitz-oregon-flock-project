@@ -36,11 +36,11 @@ if (usdBal < $(100)) await tx(dep.usd, usdAbi, "faucet", [account.address]);
 const [, , mode, mins] = process.argv;
 const flocks =
   mode === "fail"
-    ? [{ title: "Late-night taco run 🌮 (fail demo)", img: "/img/tacos.svg", F: 160, c: 0, bonus: 3, min: 12, max: 20, minutes: Number(mins || 4) }]
+    ? [{ title: "Late-night taco run 🌮 (fail demo)", img: "/img/tacos.svg", F: 160, c: 0, bonus: 3, min: 12, max: 12, minutes: Number(mins || 4) }]
     : [
-        { title: "Thanksgiving van → PDX 🦃", img: "/img/van.svg", F: 300, c: 0, bonus: 2, min: 6, max: 12, minutes: 8 * 60 },
-        { title: "OBG × Monad Blitz hoodie", img: "/img/hoodie.svg", F: 120, c: 14, bonus: 1, min: 10, max: 40, minutes: 8 * 60 },
-        { title: "Late-night taco run 🌮 (fail demo)", img: "/img/tacos.svg", F: 160, c: 0, bonus: 3, min: 12, max: 20, minutes: 6 * 60 },
+        { title: "Thanksgiving van → PDX 🦃", img: "/img/van.svg", F: 300, c: 0, bonus: 2, min: 6, max: 6, minutes: 8 * 60 },
+        { title: "OBG × Monad Blitz hoodie", img: "/img/hoodie.svg", F: 120, c: 14, bonus: 1, min: 10, max: 10, minutes: 8 * 60 },
+        { title: "Late-night taco run 🌮 (fail demo)", img: "/img/tacos.svg", F: 160, c: 0, bonus: 3, min: 12, max: 12, minutes: 6 * 60 },
       ];
 
 for (const f of flocks) {

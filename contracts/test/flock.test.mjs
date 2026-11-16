@@ -54,13 +54,13 @@ async function signJoin(flock, i, id, sigDeadline) {
   });
 }
 
-test("10 relayed joins: everyone ends at price(10), contract fully collateralized", async () => {
+test("relayed joins rebate everyone until min; the min-th join buys in the same tx", async () => {
   const { usd, flock } = await deploy();
   const seller = 1;
   await send(seller, usd, FlockUSD.abi, "faucet", [accts[seller].address]);
   const dl = (await now()) + 3600n;
-  // van to PDX: $300 fixed, $0 per seat, $1 failure bonus, min 6, max 12
-  await send(seller, flock, Flock.abi, "createFlock", ["Thanksgiving van → PDX", "", $(300), 0n, $(1), dl, 6, 12]);
+  // van to PDX: $300 fixed, $0 per seat, $1 failure bonus, min 10, max 12
+  await send(seller, flock, Flock.abi, "createFlock", ["Thanksgiving van → PDX", "", $(300), 0n, $(1), dl, 10, 12]);
   const id = 1n;
   for (let i = 10; i < 20; i++) {
     await send(0, usd, FlockUSD.abi, "faucet", [accts[i].address]); // relayer pays gas
@@ -71,7 +71,15 @@ test("10 relayed joins: everyone ends at price(10), contract fully collateralize
   const p10 = await pub.readContract({ address: flock, abi: Flock.abi, functionName: "priceAt", args: [id, 10n] });
   assert.equal(p10, $(30));
   for (let i = 10; i < 20; i++) assert.equal(await bal(usd, accts[i].address), $(500) - p10, `buyer ${i} net`);
-  assert.equal(await bal(usd, flock), p10 * 10n + $(1) * 5n);
+  const v = await pub.readContract({ address: flock, abi: Flock.abi, functionName: "getFlock", args: [id] });
+  assert.equal(v.data.status, 1, "bought at min");
+  const sb = await pub.readContract({ address: flock, abi: Flock.abi, functionName: "settledBlock", args: [id] });
+  const logs = await pub.getContractEvents({ address: flock, abi: Flock.abi, eventName: "Purchased", fromBlock: sb, toBlock: sb });
+  assert.equal(logs.length, 1, "Purchased event findable at settledBlock");
+  assert.equal(logs[0].args.buyers, 10);
+  const gross = p10 * 10n, fee = (gross * 250n) / 10000n;
+  assert.equal(await bal(usd, accts[seller].address), $(500) + gross - fee, "seller paid revenue - fee, bond returned");
+  assert.equal(await bal(usd, flock), 0n);
 });
 
 test("failed flock refunds price + bonus to everyone in one tx", async () => {
@@ -88,11 +96,11 @@ test("failed flock refunds price + bonus to everyone in one tx", async () => {
   assert.equal(await bal(usd, flock), 0n);
 });
 
-test("filling to max auto-settles; seller gets revenue - 2.5% + bond", async () => {
+test("reaching min buys instantly; seller gets revenue - 2.5% + bond; later joins revert", async () => {
   const { usd, flock } = await deploy();
   await send(1, usd, FlockUSD.abi, "faucet", [accts[1].address]);
   const dl = (await now()) + 3600n;
-  await send(1, flock, Flock.abi, "createFlock", ["Hoodies", "", $(120), $(14), $(1), dl, 3, 5]);
+  await send(1, flock, Flock.abi, "createFlock", ["Hoodies", "", $(120), $(14), $(1), dl, 5, 8]);
   for (let i = 10; i < 15; i++) { await send(i, usd, FlockUSD.abi, "faucet", [accts[i].address]); await send(i, flock, Flock.abi, "join", [1n]); }
   const v = await pub.readContract({ address: flock, abi: Flock.abi, functionName: "getFlock", args: [1n] });
   assert.equal(v.data.status, 1); // Success
@@ -103,11 +111,11 @@ test("filling to max auto-settles; seller gets revenue - 2.5% + bond", async () 
   await expectRevert(wallet(20).writeContract({ address: flock, abi: Flock.abi, functionName: "join", args: [1n], gas: 5_000_000n }).then((h) => pub.waitForTransactionReceipt({ hash: h })));
 });
 
-test("bad signature and double-join revert; seller can close early once min reached", async () => {
+test("bad signature and double-join revert; flock stays open below min", async () => {
   const { usd, flock } = await deploy();
   await send(1, usd, FlockUSD.abi, "faucet", [accts[1].address]);
   const dl = (await now()) + 3600n;
-  await send(1, flock, Flock.abi, "createFlock", ["Close early", "", $(500), 0n, 0n, dl, 2, 10]);
+  await send(1, flock, Flock.abi, "createFlock", ["Close early", "", $(500), 0n, 0n, dl, 3, 10]);
   await send(10, usd, FlockUSD.abi, "faucet", [accts[10].address]);
   const sd = (await now()) + 600n;
   const sigFromWrongKey = await signJoin(flock, 11, 1n, sd);
@@ -117,16 +125,16 @@ test("bad signature and double-join revert; seller can close early once min reac
   await expectRevert(wallet(1).writeContract({ address: flock, abi: Flock.abi, functionName: "settle", args: [1n], gas: 5_000_000n }).then((h) => pub.waitForTransactionReceipt({ hash: h })));
   await send(11, usd, FlockUSD.abi, "faucet", [accts[11].address]);
   await send(11, flock, Flock.abi, "join", [1n]);
-  await send(1, flock, Flock.abi, "settle", [1n]); // seller closes early at n=2 >= min
+  await expectRevert(wallet(1).writeContract({ address: flock, abi: Flock.abi, functionName: "settle", args: [1n], gas: 5_000_000n }).then((h) => pub.waitForTransactionReceipt({ hash: h })));
   const v = await pub.readContract({ address: flock, abi: Flock.abi, functionName: "getFlock", args: [1n] });
-  assert.equal(v.data.status, 1);
+  assert.equal(v.data.status, 0, "still open at n=2 < min 3");
 });
 
 test("gas: 60th join (59 push rebates) stays far under Monad's 30M per-tx limit", async () => {
   const { usd, flock } = await deploy();
   await send(1, usd, FlockUSD.abi, "faucet", [accts[1].address]);
   const dl = (await now()) + 3600n;
-  await send(1, flock, Flock.abi, "createFlock", ["Big", "", $(400), $(1), 0n, dl, 2, 60]);
+  await send(1, flock, Flock.abi, "createFlock", ["Big", "", $(400), $(1), 0n, dl, 60, 60]);
   let last;
   for (let i = 10; i < 70; i++) { await send(i, usd, FlockUSD.abi, "faucet", [accts[i].address]); last = await send(i, flock, Flock.abi, "join", [1n]); }
   console.log("   gas used by 60th join:", last.gasUsed.toString());

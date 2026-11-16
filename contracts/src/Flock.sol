@@ -67,12 +67,16 @@ contract Flock is EIP712, ReentrancyGuard {
     mapping(uint256 => uint64[]) internal _joinedAt;
     mapping(uint256 => mapping(address => bool)) public hasJoined;
     mapping(address => uint256) public nonces;
+    /// Block in which the flock settled (purchase or refund) — lets apps find the tx with a 1-block log query.
+    mapping(uint256 => uint256) public settledBlock;
 
     event FlockCreated(uint256 indexed id, address indexed seller, string title, uint256 fixedCost, uint256 unitCost, uint32 minBuyers, uint32 maxBuyers, uint64 deadline, uint256 bonusPerBuyer);
     event Joined(uint256 indexed id, address indexed buyer, uint32 n, uint256 pricePaid);
     event PriceDropped(uint256 indexed id, uint256 oldPrice, uint256 newPrice, uint256 rebatePerBuyer, uint32 n);
     event Settled(uint256 indexed id, bool success, uint256 finalPrice, uint32 n);
     event Refunded(uint256 indexed id, address indexed buyer, uint256 amount);
+    /// Emitted when the group buy executes: seller paid, buyers locked in at finalPrice.
+    event Purchased(uint256 indexed id, address indexed seller, uint256 paidToSeller, uint256 fee, uint256 finalPrice, uint32 buyers);
 
     error BadParams();
     error NotOpen();
@@ -218,8 +222,9 @@ contract Flock is EIP712, ReentrancyGuard {
             emit PriceDropped(id, oldPrice, newPrice, rebate, newN);
         }
 
-        // auto-settle the moment the flock is full
-        if (newN == f.maxBuyers) _settleSuccess(id);
+        // BUY: the join that reaches the minimum completes the purchase in this same tx —
+        // seller is paid on-chain immediately and the flock closes.
+        if (newN >= f.minBuyers) _settleSuccess(id);
     }
 
     // ───────────────────────── settle ─────────────────────────
@@ -244,17 +249,20 @@ contract Flock is EIP712, ReentrancyGuard {
     function _settleSuccess(uint256 id) internal {
         FlockData storage f = _flocks[id];
         f.status = Status.Success;
+        settledBlock[id] = block.number;
         uint256 finalPrice = priceAt(id, f.n);
         uint256 gross = finalPrice * f.n;
         uint256 fee = (gross * FEE_BPS) / 10_000;
         if (fee > 0) token.safeTransfer(treasury, fee);
         token.safeTransfer(f.seller, gross - fee + f.bond); // seller gets revenue + bond back
+        emit Purchased(id, f.seller, gross - fee, fee, finalPrice, f.n);
         emit Settled(id, true, finalPrice, f.n);
     }
 
     function _settleFailure(uint256 id) internal {
         FlockData storage f = _flocks[id];
         f.status = Status.Failed;
+        settledBlock[id] = block.number;
         uint256 paidEach = f.n == 0 ? 0 : priceAt(id, f.n);
         uint256 refundEach = paidEach + f.bonusPerBuyer;
         address[] storage list = _buyers[id];

@@ -7,6 +7,9 @@ import { fmtUsd } from "./flock-math";
 import { FLOCK_ADDRESS } from "./config";
 import { useAuth } from "./auth";
 
+/** The on-chain tx that bought (or refunded) a settled flock. */
+export type Settlement = { kind: "purchase" | "refund"; txHash: string; block: number; paidToSeller: number | null; fee: number | null };
+
 const domain = () => ({ name: "Flock", version: "1", chainId: 10143, verifyingContract: FLOCK_ADDRESS });
 
 async function api<T>(url: string, body?: unknown): Promise<T> {
@@ -23,12 +26,14 @@ export function useFlock(id: number, ms = 700) {
   const [myBalance, setMyBalance] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState<Settlement | null>(null);
   const lastN = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const j = await api<{ flock: FlockState; myBalance: number | null }>(`/api/flock/${id}${address ? `?me=${address}` : ""}`);
+      const j = await api<{ flock: FlockState; myBalance: number | null; settlement: Settlement | null }>(`/api/flock/${id}${address ? `?me=${address}` : ""}`);
       setFlock(j.flock);
+      setSettlement(j.settlement ?? null);
       if (j.myBalance !== null) setMyBalance(j.myBalance);
       setError(null);
       // rebate toast for me when someone new joins after me
@@ -62,7 +67,7 @@ export function useFlock(id: number, ms = 700) {
     };
   })();
 
-  return { flock, me, error, toast, refresh };
+  return { flock, me, error, toast, settlement, refresh };
 }
 
 /** Actions: onboard (free test dollars), join (sign + relay), create (sign + relay). */
